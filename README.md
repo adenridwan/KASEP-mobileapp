@@ -98,4 +98,4 @@ MIT License
 
 ---
 
-Dibuat dengan Flutter & Claude Code
+
