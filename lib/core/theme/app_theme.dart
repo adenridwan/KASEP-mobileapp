@@ -21,47 +21,47 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
-      fontFamily: 'SF Pro Text',
+      fontFamily: 'Roboto',
       textTheme: const TextTheme(
         displayLarge: TextStyle(
-          fontSize: 42,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -1.2,
+          fontSize: 40,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -1.0,
           color: AppColors.text,
         ),
         displayMedium: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w600,
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
           color: AppColors.text,
         ),
         headlineLarge: TextStyle(
-          fontSize: 27,
-          fontWeight: FontWeight.w600,
+          fontSize: 26,
+          fontWeight: FontWeight.w700,
           color: AppColors.text,
         ),
         headlineMedium: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
           color: AppColors.text,
         ),
         headlineSmall: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
           color: AppColors.text,
         ),
         titleLarge: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
           color: AppColors.text,
         ),
         titleMedium: TextStyle(
-          fontSize: 15,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           color: AppColors.text,
         ),
         titleSmall: TextStyle(
-          fontSize: 14,
+          fontSize: 15,
           fontWeight: FontWeight.w500,
           color: AppColors.text,
         ),
@@ -108,16 +108,47 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.accent,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.accent,
           side: const BorderSide(color: AppColors.accent),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: AppColors.surface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.neutral300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.neutral300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
         ),
       ),
     );

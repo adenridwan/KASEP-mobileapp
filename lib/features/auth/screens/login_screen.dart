@@ -255,7 +255,8 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         const SizedBox(height: 20),
         GestureDetector(
-          onTap: _isScanning || _isRecognized ? null : _scanBio,
+          // Allow tap even when scanning to retry biometric
+          onTap: _isRecognized ? null : _scanBio,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: 126,

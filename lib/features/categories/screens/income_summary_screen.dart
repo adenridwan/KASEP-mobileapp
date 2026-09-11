@@ -4,17 +4,17 @@ import '../../../core/storage/transaction_repository.dart';
 import '../../../models/category_summary.dart';
 import '../../transactions/screens/transaction_list_screen.dart';
 
-class CategoriesScreen extends StatefulWidget {
-  const CategoriesScreen({super.key});
+class IncomeSummaryScreen extends StatefulWidget {
+  const IncomeSummaryScreen({super.key});
 
   @override
-  State<CategoriesScreen> createState() => _CategoriesScreenState();
+  State<IncomeSummaryScreen> createState() => _IncomeSummaryScreenState();
 }
 
-class _CategoriesScreenState extends State<CategoriesScreen> {
+class _IncomeSummaryScreenState extends State<IncomeSummaryScreen> {
   DateTime _selectedMonth = DateTime.now();
   List<CategorySummary> _categories = [];
-  int _totalExpenses = 0;
+  int _totalIncome = 0;
   bool _isLoading = true;
 
   @override
@@ -26,7 +26,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
-    final summaries = await TransactionRepository.instance.getCategorySummariesForMonth(
+    final summaries = await TransactionRepository.instance.getIncomeCategorySummariesForMonth(
       _selectedMonth.year,
       _selectedMonth.month,
     );
@@ -47,7 +47,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     if (mounted) {
       setState(() {
         _categories = categories;
-        _totalExpenses = total;
+        _totalIncome = total;
         _isLoading = false;
       });
     }
@@ -129,7 +129,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Text(
-                  '‹ Beranda',
+                  '< Kembali',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.accent,
@@ -161,7 +161,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Ke mana uang pergi',
+            'Dari mana uang datang',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w600,
@@ -169,7 +169,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            '$_formattedMonth · ${_formatAmount(_totalExpenses)} keluar dari ${_categories.length} kategori',
+            '$_formattedMonth - ${_formatAmount(_totalIncome)} masuk dari ${_categories.length} kategori',
             style: TextStyle(
               fontSize: 12,
               fontStyle: FontStyle.italic,
@@ -187,13 +187,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       child: Column(
         children: [
           Icon(
-            Icons.category_outlined,
+            Icons.account_balance_wallet_outlined,
             size: 48,
             color: AppColors.neutral400,
           ),
           const SizedBox(height: 16),
           Text(
-            'Belum ada pengeluaran',
+            'Belum ada pemasukan',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -202,7 +202,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Catat pengeluaran pertama Anda',
+            'Catat pemasukan pertama Anda',
             style: TextStyle(
               fontSize: 13,
               color: AppColors.neutral600,
@@ -217,7 +217,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     if (_categories.isEmpty) return '';
     final top = _categories.first;
     final pct = top.percentage.toInt();
-    return '${top.name} mengambil $pct% dari total pengeluaran bulan ini.';
+    return '${top.name} menyumbang $pct% dari total pemasukan bulan ini.';
   }
 
   Widget _buildStackedBar() {
@@ -232,13 +232,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
 
     final colors = [
+      AppColors.accent700,
+      AppColors.accent600,
+      AppColors.accent500,
       AppColors.accent400,
       AppColors.accent300,
       AppColors.accent200,
-      AppColors.neutral400,
-      AppColors.neutral300,
-      AppColors.neutral200,
-      AppColors.neutral100,
+      AppColors.accent100,
     ];
 
     return SizedBox(

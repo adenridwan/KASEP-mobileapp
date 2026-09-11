@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/storage/transaction_repository.dart';
+import '../../../core/storage/fund_source_repository.dart';
+import '../../../models/fund_source.dart';
 import '../../transactions/screens/transaction_list_screen.dart';
 import '../../export/screens/export_screen.dart';
 
@@ -8,34 +11,34 @@ class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
 
   @override
-  State<ReportScreen> createState() => _ReportScreenState();
+  State<ReportScreen> createState() => ReportScreenState();
 }
 
-class _ReportScreenState extends State<ReportScreen> {
+class ReportScreenState extends State<ReportScreen> {
   DateTime _selectedMonth = DateTime.now();
   int _totalIncome = 0;
   int _totalExpenses = 0;
   int _transactionCount = 0;
   List<Map<String, dynamic>> _weeklyData = [];
+  List<Map<String, dynamic>> _fundSourceBalances = [];
+  int _totalFundBalance = 0;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> loadData() async {
     setState(() => _isLoading = true);
 
     final income = await TransactionRepository.instance.getTotalIncomeByMonth(
       _selectedMonth.year,
       _selectedMonth.month,
     );
-    final expenses = await TransactionRepository.instance.getTotalExpensesByMonth(
-      _selectedMonth.year,
-      _selectedMonth.month,
-    );
+    final expenses = await TransactionRepository.instance
+        .getTotalExpensesByMonth(_selectedMonth.year, _selectedMonth.month);
     final count = await TransactionRepository.instance.getCountByMonth(
       _selectedMonth.year,
       _selectedMonth.month,
@@ -44,6 +47,8 @@ class _ReportScreenState extends State<ReportScreen> {
       _selectedMonth.year,
       _selectedMonth.month,
     );
+    final fundBalances = await FundSourceRepository.instance.getAllWithBalances();
+    final totalFund = await FundSourceRepository.instance.getTotalBalance();
 
     if (mounted) {
       setState(() {
@@ -51,6 +56,8 @@ class _ReportScreenState extends State<ReportScreen> {
         _totalExpenses = expenses;
         _transactionCount = count;
         _weeklyData = weekly;
+        _fundSourceBalances = fundBalances;
+        _totalFundBalance = totalFund;
         _isLoading = false;
       });
     }
@@ -63,20 +70,31 @@ class _ReportScreenState extends State<ReportScreen> {
         _selectedMonth.month + delta,
       );
     });
-    _loadData();
+    loadData();
   }
 
   int get _netBalance => _totalIncome - _totalExpenses;
 
   String get _formattedMonth {
     const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
     return '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}';
   }
 
-  int get _daysInMonth => DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+  int get _daysInMonth =>
+      DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +115,8 @@ class _ReportScreenState extends State<ReportScreen> {
                     : Column(
                         children: [
                           _buildSummaryCards(context),
+                          const SizedBox(height: 16),
+                          _buildFundSourceSection(),
                           const SizedBox(height: 20),
                           _buildLegend(),
                           const SizedBox(height: 12),
@@ -121,7 +141,8 @@ class _ReportScreenState extends State<ReportScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,10 +168,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     ),
                     child: Text(
                       'Ekspor ›',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.accent,
-                      ),
+                      style: TextStyle(fontSize: 12, color: AppColors.accent),
                     ),
                   ),
                 ],
@@ -172,12 +190,20 @@ class _ReportScreenState extends State<ReportScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => _changeMonth(-1),
-                    child: Icon(Icons.chevron_left, size: 24, color: AppColors.neutral500),
+                    child: Icon(
+                      Icons.chevron_left,
+                      size: 24,
+                      color: AppColors.neutral500,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _changeMonth(1),
-                    child: Icon(Icons.chevron_right, size: 24, color: AppColors.neutral400),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 24,
+                      color: AppColors.neutral400,
+                    ),
                   ),
                 ],
               ),
@@ -201,22 +227,42 @@ class _ReportScreenState extends State<ReportScreen> {
     final netSign = _netBalance >= 0 ? '+' : '';
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.divider),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          _buildSummaryCard('MASUK', _formatAmount(_totalIncome), isActive: true, context: context),
+          _buildSummaryCard(
+            'MASUK',
+            _formatAmount(_totalIncome),
+            isActive: true,
+            context: context,
+          ),
           Container(width: 1, color: AppColors.divider),
-          _buildSummaryCard('KELUAR', _formatAmount(_totalExpenses), context: context),
+          _buildSummaryCard(
+            'KELUAR',
+            _formatAmount(_totalExpenses),
+            context: context,
+          ),
           Container(width: 1, color: AppColors.divider),
-          _buildSummaryCard('BERSIH', '$netSign${_formatAmount(_netBalance)}', isNet: true, context: context),
+          _buildSummaryCard(
+            'BERSIH',
+            '$netSign${_formatAmount(_netBalance)}',
+            isNet: true,
+            context: context,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryCard(String label, String value, {bool isActive = false, bool isNet = false, required BuildContext context}) {
+  Widget _buildSummaryCard(
+    String label,
+    String value, {
+    bool isActive = false,
+    bool isNet = false,
+    required BuildContext context,
+  }) {
     return Expanded(
       child: GestureDetector(
         onTap: () => Navigator.push(
@@ -244,12 +290,114 @@ class _ReportScreenState extends State<ReportScreen> {
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   fontFeatures: const [FontFeature.tabularFigures()],
-                  color: isNet ? (_netBalance >= 0 ? AppColors.accent700 : Colors.red) : null,
+                  color: isNet
+                      ? (_netBalance >= 0 ? AppColors.accent700 : Colors.red)
+                      : null,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFundSourceSection() {
+    if (_fundSourceBalances.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 16,
+                    color: AppColors.accent700,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Saldo Sumber Dana',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutral800,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                'Rp ${_formatAmount(_totalFundBalance)}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _totalFundBalance >= 0 ? AppColors.accent700 : Colors.red,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...List.generate(_fundSourceBalances.length, (index) {
+            final item = _fundSourceBalances[index];
+            final source = item['source'] as FundSource;
+            final balance = item['balance'] as int;
+            final percentage = _totalFundBalance > 0
+                ? (balance / _totalFundBalance * 100).clamp(0, 100)
+                : 0.0;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          source.name,
+                          style: const TextStyle(fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        'Rp ${_formatAmount(balance)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          color: balance >= 0 ? null : Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: percentage / 100,
+                      minHeight: 4,
+                      backgroundColor: AppColors.neutral200,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        balance >= 0 ? AppColors.accent400 : Colors.red[300]!,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -278,10 +426,7 @@ class _ReportScreenState extends State<ReportScreen> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color: AppColors.neutral700,
-          ),
+          style: TextStyle(fontSize: 11, color: AppColors.neutral700),
         ),
       ],
     );
@@ -314,7 +459,20 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   Widget _buildWeeklyTable(BuildContext context) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agt',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
     final monthAbbr = months[_selectedMonth.month - 1];
 
     return Column(
@@ -363,12 +521,14 @@ class _ReportScreenState extends State<ReportScreen> {
             ],
           ),
         ),
-        ..._weeklyData.map((week) => _buildWeekRow(
-          '${week['startDay']}–${week['endDay']} $monthAbbr',
-          week['income'] as int,
-          week['expense'] as int,
-          context: context,
-        )),
+        ..._weeklyData.map(
+          (week) => _buildWeekRow(
+            '${week['startDay']}–${week['endDay']} $monthAbbr',
+            week['income'] as int,
+            week['expense'] as int,
+            context: context,
+          ),
+        ),
         Container(
           padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
@@ -379,10 +539,7 @@ class _ReportScreenState extends State<ReportScreen> {
               const Expanded(
                 child: Text(
                   'Total',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
               SizedBox(
@@ -416,7 +573,12 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 
-  Widget _buildWeekRow(String period, int income, int expense, {required BuildContext context}) {
+  Widget _buildWeekRow(
+    String period,
+    int income,
+    int expense, {
+    required BuildContext context,
+  }) {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -472,8 +634,18 @@ class _ReportScreenState extends State<ReportScreen> {
     final sign = _netBalance >= 0 ? '' : '-';
     final nextMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
     const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
     final nextMonthName = months[nextMonth.month - 1];
 
@@ -501,16 +673,25 @@ class _ReportScreenState extends State<ReportScreen> {
                   color: AppColors.text,
                 ),
                 children: [
-                  TextSpan(text: _netBalance >= 0 ? 'Sisa bulan ini: ' : 'Defisit bulan ini: '),
+                  TextSpan(
+                    text: _netBalance >= 0
+                        ? 'Sisa bulan ini: '
+                        : 'Defisit bulan ini: ',
+                  ),
                   TextSpan(
                     text: '$sign Rp ${_formatAmount(_netBalance.abs())}',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontFeatures: const [FontFeature.tabularFigures()],
-                      color: _netBalance >= 0 ? AppColors.accent700 : Colors.red,
+                      color: _netBalance >= 0
+                          ? AppColors.accent700
+                          : Colors.red,
                     ),
                   ),
-                  TextSpan(text: ' — ${_netBalance >= 0 ? 'dibawa ke' : 'perlu ditutup di'} $nextMonthName.'),
+                  TextSpan(
+                    text:
+                        ' — ${_netBalance >= 0 ? 'dibawa ke' : 'perlu ditutup di'} $nextMonthName.',
+                  ),
                 ],
               ),
             ),
@@ -550,10 +731,7 @@ class _ReportScreenState extends State<ReportScreen> {
               padding: EdgeInsets.only(right: 16),
               child: Text(
                 '›',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.accent,
-                ),
+                style: TextStyle(fontSize: 16, color: AppColors.accent),
               ),
             ),
           ],
@@ -606,15 +784,15 @@ class _WeeklyBarChartPainter extends CustomPainter {
     for (var i = 0; i < weeklyData.length; i++) {
       labelPaint.text = TextSpan(
         text: 'pekan ${i + 1}',
-        style: TextStyle(
-          fontSize: 10,
-          color: AppColors.neutral700,
-        ),
+        style: TextStyle(fontSize: 10, color: AppColors.neutral700),
       );
       labelPaint.layout();
       labelPaint.paint(
         canvas,
-        Offset(weekWidth * i + (weekWidth - labelPaint.width) / 2, size.height - 14),
+        Offset(
+          weekWidth * i + (weekWidth - labelPaint.width) / 2,
+          size.height - 14,
+        ),
       );
     }
 
@@ -634,22 +812,51 @@ class _WeeklyBarChartPainter extends CustomPainter {
 
       // Income bar
       if (income > 0) {
-        _drawBar(canvas, startX, baseLine, barWidth, incomeHeight, AppColors.accent200, AppColors.accent600);
+        _drawBar(
+          canvas,
+          startX,
+          baseLine,
+          barWidth,
+          incomeHeight,
+          AppColors.accent200,
+          AppColors.accent600,
+        );
       }
 
       // Expense bar
       if (expense > 0) {
-        _drawBar(canvas, startX + barWidth + gap, baseLine, barWidth, expenseHeight, AppColors.neutral800, null);
+        _drawBar(
+          canvas,
+          startX + barWidth + gap,
+          baseLine,
+          barWidth,
+          expenseHeight,
+          AppColors.neutral800,
+          null,
+        );
       }
     }
   }
 
-  void _drawBar(Canvas canvas, double x, double baseLine, double width, double height, Color fill, Color? border) {
+  void _drawBar(
+    Canvas canvas,
+    double x,
+    double baseLine,
+    double width,
+    double height,
+    Color fill,
+    Color? border,
+  ) {
     if (height <= 0) return;
     final rect = Rect.fromLTWH(x, baseLine - height, width, height);
     canvas.drawRect(rect, Paint()..color = fill);
     if (border != null) {
-      canvas.drawRect(rect, Paint()..color = border..style = PaintingStyle.stroke);
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = border
+          ..style = PaintingStyle.stroke,
+      );
     }
   }
 

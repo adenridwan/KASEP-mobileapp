@@ -16,4 +16,15 @@ class Categories {
     'Penjualan',
     'Lainnya',
   ];
+
+  /// Sumber dana untuk pengeluaran
+  /// Mapping dari kategori pemasukan ke sumber dana
+  static const List<String> fundSources = [
+    'Gaji',
+    'Freelance',
+    'Bonus',
+    'Tabungan',
+    'Penjualan',
+    'Lainnya',
+  ];
 }

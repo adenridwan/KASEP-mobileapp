@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/categories.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/custom_chip.dart';
 import '../../../core/storage/transaction_repository.dart';
+import '../../../core/storage/fund_source_repository.dart';
+import '../../../core/storage/income_category_repository.dart';
 import '../../../models/transaction.dart';
+import '../../../models/fund_source.dart';
+import '../../../models/income_category.dart';
+import '../widgets/numeric_keypad.dart';
 
 class EditTransactionScreen extends StatefulWidget {
   final Transaction transaction;
@@ -16,26 +22,123 @@ class EditTransactionScreen extends StatefulWidget {
 
 class _EditTransactionScreenState extends State<EditTransactionScreen> {
   late String _selectedCategory;
-  late int _amount;
+  late String _amountStr;
   late DateTime _dateTime;
   late TextEditingController _noteController;
+  List<String> _expenseCategories = [];
+  List<IncomeCategory> _incomeCategories = [];
+  List<FundSource> _fundSources = [];
+  FundSource? _selectedFundSource;
+  final FocusNode _noteFocusNode = FocusNode();
   bool _showDeleteDialog = false;
   bool _isSaving = false;
+  bool _isNoteFieldFocused = false;
+  bool _isEditingAmount = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _selectedCategory = widget.transaction.category;
-    _amount = widget.transaction.amount;
+    _amountStr = widget.transaction.amount.toString();
     _dateTime = widget.transaction.dateTime;
     _noteController = TextEditingController(text: widget.transaction.note ?? '');
+    _noteFocusNode.addListener(_onNoteFocusChange);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    final sources = await FundSourceRepository.instance.getAll();
+
+    if (widget.transaction.isIncome) {
+      final incomeCategories = await IncomeCategoryRepository.instance.getAll();
+      if (mounted) {
+        setState(() {
+          _incomeCategories = incomeCategories;
+          _fundSources = sources;
+          _findSelectedFundSource(sources);
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _expenseCategories = Categories.expense;
+          _fundSources = sources;
+          _findSelectedFundSource(sources);
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _findSelectedFundSource(List<FundSource> sources) {
+    if (sources.isEmpty) return;
+
+    if (widget.transaction.fundSourceId != null) {
+      final found = sources.where((s) => s.id == widget.transaction.fundSourceId);
+      if (found.isNotEmpty) {
+        _selectedFundSource = found.first;
+        return;
+      }
+    }
+
+    if (widget.transaction.fundSource != null) {
+      final found = sources.where((s) => s.name == widget.transaction.fundSource);
+      if (found.isNotEmpty) {
+        _selectedFundSource = found.first;
+        return;
+      }
+    }
+
+    // For income, default to first source if none selected
+    if (widget.transaction.isIncome && sources.isNotEmpty) {
+      _selectedFundSource = sources.first;
+    }
+  }
+
+  void _onNoteFocusChange() {
+    setState(() {
+      _isNoteFieldFocused = _noteFocusNode.hasFocus;
+      if (_isNoteFieldFocused) {
+        _isEditingAmount = false;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _noteFocusNode.removeListener(_onNoteFocusChange);
+    _noteFocusNode.dispose();
     _noteController.dispose();
     super.dispose();
   }
+
+  void _onKeyPress(String key) {
+    setState(() {
+      if (key == 'del') {
+        if (_amountStr.isNotEmpty) {
+          _amountStr = _amountStr.substring(0, _amountStr.length - 1);
+        }
+      } else if (_amountStr.length <= 11) {
+        _amountStr = (_amountStr + key).replaceFirst(RegExp(r'^0+(?=\d)'), '');
+      }
+    });
+  }
+
+  void _focusOnAmount() {
+    if (_noteFocusNode.hasFocus) {
+      _noteFocusNode.unfocus();
+    }
+    setState(() {
+      _isEditingAmount = true;
+      _isNoteFieldFocused = false;
+    });
+  }
+
+  int get _amount => int.tryParse(_amountStr) ?? 0;
 
   Future<void> _save() async {
     if (_isSaving) return;
@@ -51,6 +154,8 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         title: _noteController.text.isNotEmpty
             ? _noteController.text
             : _selectedCategory,
+        fundSource: _selectedFundSource?.name,
+        fundSourceId: _selectedFundSource?.id,
       );
 
       await TransactionRepository.instance.update(updatedTransaction);
@@ -125,6 +230,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Stack(
           children: [
@@ -132,6 +238,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
               children: [
                 _buildHeader(),
                 Expanded(child: _buildForm()),
+                if (_isEditingAmount && !_isNoteFieldFocused)
+                  NumericKeypad(
+                    onKeyPress: _onKeyPress,
+                    onSave: _save,
+                  ),
               ],
             ),
             if (_showDeleteDialog) _buildDeleteDialog(),
@@ -185,6 +296,10 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   }
 
   Widget _buildForm() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final tx = widget.transaction;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -193,6 +308,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         children: [
           _buildAmountSection(tx),
           _buildCategorySection(),
+          _buildFundSourceSection(),
           _buildDateTimeSection(tx),
           _buildNoteSection(tx),
           _buildImpactCallout(),
@@ -203,74 +319,105 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   }
 
   Widget _buildAmountSection(Transaction tx) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 22),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'NOMINAL',
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 1.2,
-              color: AppColors.neutral700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.accent)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+    return GestureDetector(
+      onTap: _focusOnAmount,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 22),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.divider)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Rp',
+                  'NOMINAL',
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral600,
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                    color: AppColors.neutral700,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  tx.amount.toString().replaceAllMapped(
-                    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                    (Match m) => '${m[1]}.',
+                if (!_isEditingAmount)
+                  Text(
+                    'Ketuk untuk ubah',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: AppColors.accent,
+                    ),
                   ),
-                  style: const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.8,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
               ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${tx.title} · ${tx.formattedDateTime}',
-            style: TextStyle(
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-              color: AppColors.neutral700,
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(
+                  color: _isEditingAmount ? AppColors.accent : AppColors.divider,
+                )),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    'Rp',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutral600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      CurrencyFormatter.formatDigits(_amountStr),
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.8,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                  if (_isEditingAmount)
+                    Container(
+                      width: 1,
+                      height: 36,
+                      color: AppColors.accent,
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              '${tx.title} · ${tx.formattedDateTime}',
+              style: TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: AppColors.neutral700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCategorySection() {
-    final categories = widget.transaction.isIncome
-        ? Categories.income
-        : Categories.expense;
+    final List<String> categoryNames;
+    if (widget.transaction.isIncome) {
+      categoryNames = _incomeCategories.map((c) => c.name).toList();
+      // Include current category if not in the list (might be deactivated)
+      if (!categoryNames.contains(_selectedCategory)) {
+        categoryNames.insert(0, _selectedCategory);
+      }
+    } else {
+      categoryNames = _expenseCategories;
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -292,10 +439,77 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: categories.map((cat) => CustomChip(
+            children: categoryNames.map((cat) => CustomChip(
               label: cat,
               isSelected: cat == _selectedCategory,
               onTap: () => setState(() => _selectedCategory = cat),
+            )).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFundSourceSection() {
+    if (_fundSources.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isIncome = widget.transaction.isIncome;
+    final label = isIncome ? 'MASUK KE' : 'SUMBER DANA';
+    final isRequired = isIncome;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.divider)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: 1.2,
+                  color: AppColors.neutral700,
+                ),
+              ),
+              if (!isRequired) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '(opsional)',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                    color: AppColors.neutral600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _fundSources.map((source) => CustomChip(
+              label: source.name,
+              isSelected: _selectedFundSource?.id == source.id,
+              onTap: () => setState(() {
+                if (isRequired) {
+                  // For income, always select (can't deselect)
+                  _selectedFundSource = source;
+                } else {
+                  // For expense, toggle selection - can be deselected
+                  if (_selectedFundSource?.id == source.id) {
+                    _selectedFundSource = null;
+                  } else {
+                    _selectedFundSource = source;
+                  }
+                }
+              }),
             )).toList(),
           ),
         ],
@@ -380,39 +594,52 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   }
 
   Widget _buildNoteSection(Transaction tx) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'CATATAN',
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 1.2,
-              color: AppColors.neutral700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _noteController,
-            decoration: InputDecoration(
-              hintText: 'Tambah catatan...',
-              hintStyle: TextStyle(
-                fontSize: 14,
-                fontStyle: FontStyle.italic,
-                color: AppColors.neutral600,
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isEditingAmount = false;
+        });
+        _noteFocusNode.requestFocus();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.divider)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'CATATAN',
+              style: TextStyle(
+                fontSize: 11,
+                letterSpacing: 1.2,
+                color: AppColors.neutral700,
               ),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
             ),
-            style: const TextStyle(fontSize: 14),
-            maxLines: null,
-          ),
-        ],
+            const SizedBox(height: 8),
+            TextField(
+              controller: _noteController,
+              focusNode: _noteFocusNode,
+              decoration: InputDecoration(
+                hintText: 'Tambah catatan...',
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.neutral600,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: const TextStyle(fontSize: 14),
+              maxLines: null,
+              textInputAction: TextInputAction.done,
+              onEditingComplete: () {
+                _noteFocusNode.unfocus();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

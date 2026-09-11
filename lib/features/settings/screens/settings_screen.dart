@@ -1,12 +1,16 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/auth_service.dart';
 import '../../auth/screens/auth_router.dart';
 import '../../categories/screens/categories_screen.dart';
+import '../../categories/screens/income_summary_screen.dart';
+import '../../fund_sources/screens/fund_sources_screen.dart';
+import '../../income_categories/screens/income_categories_screen.dart';
 import '../../export/screens/export_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -78,7 +82,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (_profileImage != null)
               ListTile(
                 leading: Icon(Icons.delete, color: AppColors.accent800),
-                title: Text('Hapus Foto', style: TextStyle(color: AppColors.accent800)),
+                title: Text(
+                  'Hapus Foto',
+                  style: TextStyle(color: AppColors.accent800),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _deleteImage();
@@ -111,16 +118,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Foto profil disimpan')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Foto profil disimpan')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal mengambil foto: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Gagal mengambil foto: $e')));
       }
     }
   }
@@ -136,9 +142,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _profileImage = null;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Foto profil dihapus')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Foto profil dihapus')));
       }
     } catch (e) {
       // Ignore
@@ -205,18 +210,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Ganti PIN',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Fitur ganti PIN belum tersedia')),
+                          const SnackBar(
+                            content: Text('Fitur ganti PIN belum tersedia'),
+                          ),
                         );
                       },
                     ),
                     const SizedBox(height: 20),
-                    _buildSectionTitle('Kas'),
+                    _buildSectionTitle('Analisis'),
                     _buildMenuItem(
-                      icon: Icons.category_outlined,
-                      title: 'Kategori',
+                      icon: Icons.trending_down,
+                      title: 'Pengeluaran per Kategori',
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const CategoriesScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const CategoriesScreen(),
+                        ),
+                      ),
+                    ),
+                    _buildMenuItem(
+                      icon: Icons.trending_up,
+                      title: 'Pemasukan per Kategori',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const IncomeSummaryScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionTitle('Master Data'),
+                    _buildMenuItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Sumber Dana',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const FundSourcesScreen(),
+                        ),
+                      ),
+                    ),
+                    _buildMenuItem(
+                      icon: Icons.label_outline,
+                      title: 'Kategori Pemasukan',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const IncomeCategoriesScreen(),
+                        ),
                       ),
                     ),
                     _buildMenuItemStatic(
@@ -237,7 +278,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 14),
                     Center(
                       child: Text(
-                        'KASEP 1.0.0',
+                        'KASEP 1.1.0',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppColors.neutral700,
@@ -268,19 +309,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.pop(context),
             child: Text(
               '‹ Beranda',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.accent,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.accent),
             ),
           ),
           const SizedBox(height: 8),
           const Text(
             'Pengaturan',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -291,9 +326,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return GestureDetector(
       onTap: _pickProfileImage,
       child: Container(
-        padding: const EdgeInsets.only(bottom: 18),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.divider)),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
@@ -327,22 +363,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   const Text(
                     'Pengguna',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   Text(
-                    _profileImage != null ? 'Ketuk untuk ganti foto' : 'Ketuk untuk tambah foto',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.neutral700,
-                    ),
+                    _profileImage != null
+                        ? 'Ketuk untuk ganti foto'
+                        : 'Ketuk untuk tambah foto',
+                    style: TextStyle(fontSize: 12, color: AppColors.neutral700),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.camera_alt_outlined, size: 20, color: AppColors.neutral500),
+            Icon(
+              Icons.camera_alt_outlined,
+              size: 20,
+              color: AppColors.neutral500,
+            ),
           ],
         ),
       ),
@@ -365,9 +401,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildBiometricsToggle() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
@@ -384,10 +422,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (!_biometricsAvailable)
                   Text(
                     'Tidak tersedia di perangkat ini',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.neutral600,
-                    ),
+                    style: TextStyle(fontSize: 11, color: AppColors.neutral600),
                   ),
               ],
             ),
@@ -410,20 +445,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.divider)),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
             Icon(icon, size: 20, color: AppColors.neutral700),
             const SizedBox(width: 11),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontSize: 14),
-              ),
-            ),
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 14))),
             Icon(Icons.chevron_right, size: 20, color: AppColors.neutral500),
           ],
         ),
@@ -437,26 +469,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String value,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           Icon(icon, size: 20, color: AppColors.neutral700),
           const SizedBox(width: 11),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
+          Expanded(child: Text(title, style: const TextStyle(fontSize: 14))),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.neutral700,
-            ),
+            style: TextStyle(fontSize: 13, color: AppColors.neutral700),
           ),
         ],
       ),
@@ -467,22 +493,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return GestureDetector(
       onTap: _showLogoutDialog,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppColors.accent800),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.negative.withOpacity(.35)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.logout, size: 17, color: AppColors.accent800),
+            Icon(Icons.logout, size: 17, color: AppColors.negative),
             const SizedBox(width: 9),
             Text(
               'Keluar',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: AppColors.accent800,
+                color: AppColors.negative,
               ),
             ),
           ],

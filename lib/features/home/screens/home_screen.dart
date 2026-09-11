@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/storage/transaction_repository.dart';
@@ -8,7 +9,6 @@ import '../../transactions/screens/add_transaction_screen.dart';
 import '../../transactions/screens/edit_transaction_screen.dart';
 import '../../categories/screens/categories_screen.dart';
 import '../../settings/screens/settings_screen.dart';
-import '../../auth/screens/auth_router.dart';
 import '../widgets/balance_chart.dart';
 import '../widgets/category_bar.dart';
 import '../widgets/transaction_row.dart';
@@ -17,10 +17,10 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   DateTime _selectedMonth = DateTime.now();
   List<Transaction> _todayTransactions = [];
   List<Transaction> _monthTransactions = [];
@@ -32,30 +32,26 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> loadData() async {
     setState(() => _isLoading = true);
 
     final today = DateTime.now();
-    final todayTransactions = await TransactionRepository.instance.getByDate(today);
+    final todayTransactions = await TransactionRepository.instance.getByDate(
+      today,
+    );
     final monthTransactions = await TransactionRepository.instance.getByMonth(
       _selectedMonth.year,
       _selectedMonth.month,
     );
-    final totalIncome = await TransactionRepository.instance.getTotalIncomeByMonth(
-      _selectedMonth.year,
-      _selectedMonth.month,
-    );
-    final totalExpenses = await TransactionRepository.instance.getTotalExpensesByMonth(
-      _selectedMonth.year,
-      _selectedMonth.month,
-    );
-    final categoryTotals = await TransactionRepository.instance.getTotalByCategoryForMonth(
-      _selectedMonth.year,
-      _selectedMonth.month,
-    );
+    final totalIncome = await TransactionRepository.instance
+        .getTotalIncomeByMonth(_selectedMonth.year, _selectedMonth.month);
+    final totalExpenses = await TransactionRepository.instance
+        .getTotalExpensesByMonth(_selectedMonth.year, _selectedMonth.month);
+    final categoryTotals = await TransactionRepository.instance
+        .getTotalByCategoryForMonth(_selectedMonth.year, _selectedMonth.month);
 
     if (mounted) {
       setState(() {
@@ -76,15 +72,25 @@ class _HomeScreenState extends State<HomeScreen> {
         _selectedMonth.month + delta,
       );
     });
-    _loadData();
+    loadData();
   }
 
   int get _netBalance => _totalIncome - _totalExpenses;
 
   String get _formattedMonth {
     const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
     return '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}';
   }
@@ -113,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       children: [
                         _buildNetSummary(),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 16),
                         _buildIncomeExpense(context),
                         const SizedBox(height: 24),
                         _buildBalanceChart(),
@@ -127,11 +133,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            Positioned(
-              right: 22,
-              bottom: 20,
-              child: _buildFAB(context),
-            ),
           ],
         ),
       ),
@@ -140,16 +141,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             'KASEP',
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1.7,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
               color: AppColors.neutral700,
             ),
           ),
@@ -157,33 +158,46 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               GestureDetector(
                 onTap: () => _changeMonth(-1),
-                child: Icon(Icons.chevron_left, size: 20, color: AppColors.neutral500),
-              ),
-              const SizedBox(width: 14),
-              Text(
-                _formattedMonth,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                child: Icon(
+                  Icons.chevron_left,
+                  size: 18,
+                  color: AppColors.neutral500,
                 ),
               ),
-              const SizedBox(width: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _formattedMonth,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               GestureDetector(
                 onTap: () => _changeMonth(1),
-                child: Icon(Icons.chevron_right, size: 20, color: AppColors.neutral400),
+                child: Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: AppColors.neutral400,
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               GestureDetector(
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const SettingsScreen()),
                 ),
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 30,
+                  height: 30,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.transparent,
+                    color: AppColors.surface,
                   ),
                   child: Icon(
                     Icons.settings_outlined,
@@ -192,54 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: _showLogoutDialog,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.transparent,
-                  ),
-                  child: Icon(
-                    Icons.logout,
-                    size: 18,
-                    color: AppColors.accent800,
-                  ),
-                ),
-              ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Keluar dari akun?'),
-        content: const Text(
-          'Catatan tetap tersimpan terenkripsi di ponsel. '
-          'Anda perlu sidik jari atau PIN untuk masuk kembali.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const AuthRouter()),
-                (route) => false,
-              );
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.accent800),
-            child: const Text('Keluar'),
           ),
         ],
       ),
@@ -251,24 +218,36 @@ class _HomeScreenState extends State<HomeScreen> {
     final displayAmount = _netBalance.abs();
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18),
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppColors.divider),
-          bottom: BorderSide(color: AppColors.divider),
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0B5C4D), Color(0xFF147D68), Color(0xFF3AA58B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          stops: [0, .58, 1],
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.22),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
+      width: double.infinity,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'BERSIH BULAN INI',
             style: TextStyle(
               fontSize: 11,
               letterSpacing: 1.2,
-              color: AppColors.neutral700,
+              color: Colors.white70,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           _isLoading
               ? const CircularProgressIndicator()
               : Text(
@@ -277,16 +256,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontSize: 42,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -1.2,
-                    color: _netBalance >= 0 ? AppColors.accent700 : Colors.red,
+                    color: Colors.white,
                   ),
                 ),
           const SizedBox(height: 8),
           Text(
-            '${_monthTransactions.length} catatan',
+            '${_monthTransactions.length} catatan bulan ini',
             style: TextStyle(
               fontSize: 12,
               fontStyle: FontStyle.italic,
-              color: AppColors.neutral700,
+              color: Colors.white70,
             ),
           ),
         ],
@@ -301,30 +280,57 @@ class _HomeScreenState extends State<HomeScreen> {
           child: GestureDetector(
             onTap: () => _navigateToAddTransaction(context, isIncome: true),
             child: Container(
-              padding: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFEDF8F4), Color(0xFFD8F0E8)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.15),
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.arrow_upward, size: 13, color: AppColors.accent),
-                      const SizedBox(width: 7),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.south_west_rounded,
+                          size: 14,
+                          color: AppColors.accent700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        'KAS MASUK',
+                        'Pemasukan',
                         style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 0.8,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.neutral700,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    _formatCurrency(_totalIncome),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(height: 10),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _formatCurrency(_totalIncome),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accent700,
+                      ),
                     ),
                   ),
                 ],
@@ -332,35 +338,61 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
-        Container(width: 1, height: 50, color: AppColors.divider),
+        const SizedBox(width: 12),
         Expanded(
           child: GestureDetector(
             onTap: () => _navigateToAddTransaction(context, isIncome: false),
             child: Container(
-              padding: const EdgeInsets.only(left: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF5F3FA), Color(0xFFEBE7F5)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.lavender.withValues(alpha: 0.3),
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.arrow_downward, size: 13, color: AppColors.neutral800),
-                      const SizedBox(width: 7),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.neutral700.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.north_east_rounded,
+                          size: 14,
+                          color: AppColors.neutral700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        'KAS KELUAR',
+                        'Pengeluaran',
                         style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 0.8,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.neutral700,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    _formatCurrency(_totalExpenses),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(height: 10),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _formatCurrency(_totalExpenses),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -374,9 +406,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBalanceChart() {
     return Container(
-      padding: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.divider)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
@@ -385,10 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
             subtitle: 'harian, $_formattedMonth',
           ),
           const SizedBox(height: 10),
-          BalanceChart(
-            year: _selectedMonth.year,
-            month: _selectedMonth.month,
-          ),
+          BalanceChart(year: _selectedMonth.year, month: _selectedMonth.month),
         ],
       ),
     );
@@ -402,14 +432,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final maxAmount = topCategories.isNotEmpty ? topCategories.first.value : 1;
 
     return Container(
-      padding: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.divider)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
           SectionHeader(
-            title: 'Ke mana perginya',
+            title: 'Pengeluaran Teratas',
             actionText: 'Semua kategori ›',
             onActionTap: () => Navigator.push(
               context,
@@ -430,12 +461,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           else
-            ...topCategories.map((entry) => CategoryBar(
-              category: entry.key,
-              amount: entry.value,
-              barWidth: (entry.value / maxAmount * 100).clamp(10, 100).toDouble(),
-              onTap: () => _navigateToTransactions(context, filter: entry.key),
-            )),
+            ...topCategories.map(
+              (entry) => CategoryBar(
+                category: entry.key,
+                amount: entry.value,
+                barWidth: (entry.value / maxAmount * 100)
+                    .clamp(10, 100)
+                    .toDouble(),
+                onTap: () =>
+                    _navigateToTransactions(context, filter: entry.key),
+              ),
+            ),
         ],
       ),
     );
@@ -443,16 +479,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTodayTransactions(BuildContext context) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agt',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
     ];
     final today = DateTime.now();
     final todayLabel = '${today.day} ${months[today.month - 1]}';
 
     return Container(
-      padding: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.divider)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
@@ -475,34 +522,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           else
-            ..._todayTransactions.map((tx) => TransactionRow(
-              transaction: tx,
-              onTap: () => _navigateToEdit(context, tx),
-            )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFAB(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _navigateToAddTransaction(context, isIncome: false),
-      child: Container(
-        width: 58,
-        height: 58,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.bg,
-          border: Border.all(color: AppColors.accent),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+            ..._todayTransactions.map(
+              (tx) => TransactionRow(
+                transaction: tx,
+                onTap: () => _navigateToEdit(context, tx),
+              ),
             ),
-          ],
-        ),
-        child: const Icon(Icons.add, color: AppColors.accent, size: 24),
+        ],
       ),
     );
   }
@@ -515,11 +541,14 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (result == true) {
-      _loadData();
+      loadData();
     }
   }
 
-  void _navigateToAddTransaction(BuildContext context, {required bool isIncome}) async {
+  void _navigateToAddTransaction(
+    BuildContext context, {
+    required bool isIncome,
+  }) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -527,19 +556,17 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (result == true) {
-      _loadData();
+      loadData();
     }
   }
 
   void _navigateToEdit(BuildContext context, Transaction tx) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => EditTransactionScreen(transaction: tx),
-      ),
+      MaterialPageRoute(builder: (_) => EditTransactionScreen(transaction: tx)),
     );
     if (result == true) {
-      _loadData();
+      loadData();
     }
   }
 }

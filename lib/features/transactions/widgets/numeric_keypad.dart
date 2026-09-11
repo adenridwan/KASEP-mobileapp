@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_colors.dart';
 
 class NumericKeypad extends StatelessWidget {
@@ -14,10 +15,17 @@ class NumericKeypad extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 34),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.divider)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.08),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -29,13 +37,7 @@ class NumericKeypad extends StatelessWidget {
               _buildKey('000', isSmall: true, rowSpan: true),
             ],
           ),
-          Row(
-            children: [
-              _buildKey('4'),
-              _buildKey('5'),
-              _buildKey('6'),
-            ],
-          ),
+          Row(children: [_buildKey('4'), _buildKey('5'), _buildKey('6')]),
           Row(
             children: [
               _buildKey('7'),
@@ -44,12 +46,7 @@ class NumericKeypad extends StatelessWidget {
               _buildKey('del', isDelete: true),
             ],
           ),
-          Row(
-            children: [
-              _buildKey('0', colSpan: 2),
-              _buildSaveButton(),
-            ],
-          ),
+          Row(children: [_buildKey('0', colSpan: 2), _buildSaveButton()]),
         ],
       ),
     );
@@ -68,25 +65,31 @@ class NumericKeypad extends StatelessWidget {
         padding: const EdgeInsets.all(4.5),
         child: Material(
           color: isDelete ? Colors.transparent : AppColors.bg,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(14),
           child: InkWell(
             onTap: () => onKeyPress(value),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               height: rowSpan ? 110 : 48,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: AppColors.divider),
+                color: isDelete ? Colors.transparent : AppColors.neutral200,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
                 child: isDelete
-                    ? Icon(Icons.backspace_outlined, color: AppColors.neutral700, size: 20)
+                    ? Icon(
+                        Icons.backspace_outlined,
+                        color: AppColors.neutral700,
+                        size: 20,
+                      )
                     : Text(
                         value,
                         style: TextStyle(
                           fontSize: isSmall ? 15 : 22,
                           fontWeight: FontWeight.w600,
-                          color: isSmall ? AppColors.neutral700 : AppColors.text,
+                          color: isSmall
+                              ? AppColors.neutral700
+                              : AppColors.text,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
@@ -105,15 +108,15 @@ class NumericKeypad extends StatelessWidget {
         padding: const EdgeInsets.all(4.5),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(14),
           child: InkWell(
             onTap: onSave,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               height: 48,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: AppColors.accent),
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -123,7 +126,7 @@ class NumericKeypad extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.accent,
+                      color: Colors.white,
                     ),
                   ),
                 ],

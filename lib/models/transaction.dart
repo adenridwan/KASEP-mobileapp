@@ -6,6 +6,10 @@ class Transaction {
   final DateTime dateTime;
   final String? note;
   final bool isIncome;
+  final String? fundSource; // Nama sumber dana (legacy, untuk display)
+  final String? fundSourceId; // ID sumber dana
+  final bool isTransfer; // Apakah ini transaksi transfer
+  final String? transferToSourceId; // ID sumber tujuan (untuk transfer)
 
   Transaction({
     required this.id,
@@ -15,6 +19,10 @@ class Transaction {
     required this.dateTime,
     this.note,
     this.isIncome = false,
+    this.fundSource,
+    this.fundSourceId,
+    this.isTransfer = false,
+    this.transferToSourceId,
   });
 
   /// Convert Transaction to Map for database storage
@@ -27,6 +35,10 @@ class Transaction {
       'dateTime': dateTime.toIso8601String(),
       'note': note,
       'isIncome': isIncome ? 1 : 0,
+      'fundSource': fundSource,
+      'fundSourceId': fundSourceId,
+      'isTransfer': isTransfer ? 1 : 0,
+      'transferToSourceId': transferToSourceId,
     };
   }
 
@@ -40,6 +52,10 @@ class Transaction {
       dateTime: DateTime.parse(map['dateTime'] as String),
       note: map['note'] as String?,
       isIncome: (map['isIncome'] as int) == 1,
+      fundSource: map['fundSource'] as String?,
+      fundSourceId: map['fundSourceId'] as String?,
+      isTransfer: (map['isTransfer'] as int?) == 1,
+      transferToSourceId: map['transferToSourceId'] as String?,
     );
   }
 
@@ -67,6 +83,10 @@ class Transaction {
     DateTime? dateTime,
     String? note,
     bool? isIncome,
+    String? fundSource,
+    String? fundSourceId,
+    bool? isTransfer,
+    String? transferToSourceId,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -76,6 +96,10 @@ class Transaction {
       dateTime: dateTime ?? this.dateTime,
       note: note ?? this.note,
       isIncome: isIncome ?? this.isIncome,
+      fundSource: fundSource ?? this.fundSource,
+      fundSourceId: fundSourceId ?? this.fundSourceId,
+      isTransfer: isTransfer ?? this.isTransfer,
+      transferToSourceId: transferToSourceId ?? this.transferToSourceId,
     );
   }
 }

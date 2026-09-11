@@ -7,7 +7,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/storage/transaction_repository.dart';
-import '../../../models/transaction.dart';
+import '../../../core/storage/fund_source_repository.dart';
+import '../../../models/fund_source.dart';
 import '../../reports/screens/report_screen.dart';
 
 class ExportScreen extends StatefulWidget {
@@ -33,6 +34,8 @@ class _ExportScreenState extends State<ExportScreen> {
   int _totalIncome = 0;
   int _totalExpense = 0;
   int _transactionCount = 0;
+  List<Map<String, dynamic>> _fundSourceBalances = [];
+  int _totalFundBalance = 0;
 
   @override
   void initState() {
@@ -46,12 +49,16 @@ class _ExportScreenState extends State<ExportScreen> {
     final income = await _repository.getTotalIncomeByMonth(_selectedYear, _selectedMonth);
     final expense = await _repository.getTotalExpensesByMonth(_selectedYear, _selectedMonth);
     final count = await _repository.getCountByMonth(_selectedYear, _selectedMonth);
+    final fundBalances = await FundSourceRepository.instance.getAllWithBalances();
+    final totalFund = await FundSourceRepository.instance.getTotalBalance();
 
     if (mounted) {
       setState(() {
         _totalIncome = income;
         _totalExpense = expense;
         _transactionCount = count;
+        _fundSourceBalances = fundBalances;
+        _totalFundBalance = totalFund;
         _isLoading = false;
       });
     }
@@ -193,6 +200,54 @@ class _ExportScreenState extends State<ExportScreen> {
             style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
           ),
 
+          // Fund Source Balances
+          if (_fundSourceBalances.isNotEmpty) ...[
+            pw.SizedBox(height: 30),
+            pw.Text(
+              'SALDO SUMBER DANA',
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Column(
+                children: [
+                  ..._fundSourceBalances.map((item) {
+                    final source = item['source'] as FundSource;
+                    final balance = item['balance'] as int;
+                    return pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                      child: pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(source.name, style: const pw.TextStyle(fontSize: 11)),
+                          pw.Text(
+                            'Rp ${_currencyFormat.format(balance)}',
+                            style: const pw.TextStyle(fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  pw.Divider(),
+                  _buildPdfSummaryRow(
+                    'Total Saldo',
+                    'Rp ${_currencyFormat.format(_totalFundBalance)}',
+                    bold: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Transaction list
           if (_includeEntries && transactions.isNotEmpty) ...[
             pw.SizedBox(height: 30),
@@ -208,10 +263,11 @@ class _ExportScreenState extends State<ExportScreen> {
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300),
               columnWidths: {
-                0: const pw.FlexColumnWidth(2),
-                1: const pw.FlexColumnWidth(3),
-                2: const pw.FlexColumnWidth(2),
-                3: const pw.FlexColumnWidth(2),
+                0: const pw.FlexColumnWidth(1.5),
+                1: const pw.FlexColumnWidth(2.5),
+                2: const pw.FlexColumnWidth(1.5),
+                3: const pw.FlexColumnWidth(1.5),
+                4: const pw.FlexColumnWidth(1.8),
               },
               children: [
                 pw.TableRow(
@@ -220,16 +276,18 @@ class _ExportScreenState extends State<ExportScreen> {
                     _buildPdfTableHeader('Tanggal'),
                     _buildPdfTableHeader('Keterangan'),
                     _buildPdfTableHeader('Kategori'),
+                    _buildPdfTableHeader('Sumber'),
                     _buildPdfTableHeader('Jumlah'),
                   ],
                 ),
                 ...transactions.map((tx) => pw.TableRow(
                   children: [
-                    _buildPdfTableCell(DateFormat('dd/MM/yyyy').format(tx.dateTime)),
+                    _buildPdfTableCell(DateFormat('dd/MM').format(tx.dateTime)),
                     _buildPdfTableCell(tx.title),
                     _buildPdfTableCell(tx.category),
+                    _buildPdfTableCell(tx.fundSource ?? '-'),
                     _buildPdfTableCell(
-                      '${tx.isIncome ? '+' : '-'}Rp ${_currencyFormat.format(tx.amount)}',
+                      '${tx.isIncome ? '+' : '-'}${_currencyFormat.format(tx.amount)}',
                       align: pw.TextAlign.right,
                     ),
                   ],
@@ -297,13 +355,27 @@ class _ExportScreenState extends State<ExportScreen> {
     buffer.writeln('Bersih,Rp ${_currencyFormat.format(_totalIncome - _totalExpense)}');
     buffer.writeln('');
 
+    // Fund source balances
+    if (_fundSourceBalances.isNotEmpty) {
+      buffer.writeln('SALDO SUMBER DANA');
+      buffer.writeln('Nama,Saldo');
+      for (final item in _fundSourceBalances) {
+        final source = item['source'] as FundSource;
+        final balance = item['balance'] as int;
+        buffer.writeln('${source.name.replaceAll(',', ';')},${_currencyFormat.format(balance)}');
+      }
+      buffer.writeln('Total,${_currencyFormat.format(_totalFundBalance)}');
+      buffer.writeln('');
+    }
+
     if (_includeEntries) {
       buffer.writeln('DAFTAR TRANSAKSI');
-      buffer.writeln('Tanggal,Keterangan,Kategori,Tipe,Jumlah');
+      buffer.writeln('Tanggal,Keterangan,Kategori,Sumber Dana,Tipe,Jumlah');
       for (final tx in transactions) {
         final date = DateFormat('dd/MM/yyyy').format(tx.dateTime);
-        final desc = tx.title.replaceAll(',', ';'); // Escape commas
-        buffer.writeln('$date,$desc,${tx.category},${tx.isIncome ? "Masuk" : "Keluar"},${tx.amount}');
+        final desc = tx.title.replaceAll(',', ';');
+        final fundSource = (tx.fundSource ?? '-').replaceAll(',', ';');
+        buffer.writeln('$date,$desc,${tx.category},$fundSource,${tx.isIncome ? "Masuk" : "Keluar"},${tx.amount}');
       }
     }
 
@@ -432,54 +504,57 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.neutral100,
-          borderRadius: BorderRadius.circular(4),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.divider),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
-          ],
         ),
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: CircularProgressIndicator()),
+              )
             : Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 14),
                     decoration: BoxDecoration(
                       border: Border(bottom: BorderSide(color: AppColors.divider)),
                     ),
                     child: Column(
                       children: [
-                        Text(
-                          'LAPORAN KAS',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.6,
-                            color: AppColors.accent700,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'LAPORAN KAS',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                              color: AppColors.accent700,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Text(
                           '${_getMonthName(_selectedMonth)} $_selectedYear',
                           style: const TextStyle(
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  _buildPreviewRow('Kas masuk', 'Rp ${_currencyFormat.format(_totalIncome)}'),
+                  const SizedBox(height: 14),
+                  _buildPreviewRow('Kas masuk', 'Rp ${_currencyFormat.format(_totalIncome)}', isIncome: true),
                   _buildPreviewRow('Kas keluar', 'Rp ${_currencyFormat.format(_totalExpense)}'),
                   Container(
-                    margin: const EdgeInsets.only(top: 5),
-                    padding: const EdgeInsets.only(top: 5),
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: 8),
                     decoration: BoxDecoration(
                       border: Border(top: BorderSide(color: AppColors.divider)),
                     ),
@@ -489,29 +564,69 @@ class _ExportScreenState extends State<ExportScreen> {
                         const Text(
                           'Bersih',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           '${netAmount >= 0 ? '+' : ''}Rp ${_currencyFormat.format(netAmount)}',
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: netAmount >= 0 ? AppColors.accent700 : AppColors.accent800,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: netAmount >= 0 ? AppColors.accent700 : Colors.red,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],
                     ),
                   ),
+                  if (_fundSourceBalances.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                size: 16,
+                                color: AppColors.accent700,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Total Saldo',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.accent700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'Rp ${_currencyFormat.format(_totalFundBalance)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.accent700,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Text(
-                    '$_transactionCount transaksi',
+                    '$_transactionCount transaksi · ${_fundSourceBalances.length} sumber dana',
                     style: TextStyle(
-                      fontSize: 10,
-                      fontStyle: FontStyle.italic,
-                      color: AppColors.neutral700,
+                      fontSize: 11,
+                      color: AppColors.neutral600,
                     ),
                   ),
                 ],
@@ -520,20 +635,33 @@ class _ExportScreenState extends State<ExportScreen> {
     );
   }
 
-  Widget _buildPreviewRow(String label, String value) {
+  Widget _buildPreviewRow(String label, String value, {bool isIncome = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: isIncome ? AppColors.accent400 : AppColors.neutral400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
           ),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
@@ -547,18 +675,18 @@ class _ExportScreenState extends State<ExportScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'FORMAT',
+          'Format Ekspor',
           style: TextStyle(
-            fontSize: 11,
-            letterSpacing: 1.2,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
             color: AppColors.neutral700,
           ),
         ),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.divider),
+            borderRadius: BorderRadius.circular(16),
+            color: AppColors.surface,
           ),
           child: Row(
             children: [
@@ -577,12 +705,11 @@ class _ExportScreenState extends State<ExportScreen> {
       child: GestureDetector(
         onTap: () => setState(() => _selectedFormat = format),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 11),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          margin: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.accent100 : Colors.transparent,
-            border: format != 'PDF'
-                ? Border(left: BorderSide(color: AppColors.divider))
-                : null,
+            color: isSelected ? AppColors.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Center(
             child: Text(
@@ -590,7 +717,7 @@ class _ExportScreenState extends State<ExportScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? AppColors.accent700 : AppColors.text,
+                color: isSelected ? Colors.white : AppColors.neutral600,
               ),
             ),
           ),
@@ -604,43 +731,70 @@ class _ExportScreenState extends State<ExportScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'PENGATURAN',
+          'Pengaturan',
           style: TextStyle(
-            fontSize: 11,
-            letterSpacing: 1.2,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
             color: AppColors.neutral700,
           ),
         ),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: _showMonthPicker,
-          child: _buildOptionRow(
-            '${_getMonthName(_selectedMonth)} $_selectedYear',
-            trailing: Icon(Icons.chevron_right, size: 20, color: AppColors.neutral600),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
           ),
-        ),
-        _buildOptionRow(
-          'Sertakan daftar transaksi',
-          trailing: _buildSwitch(_includeEntries, (v) => setState(() => _includeEntries = v)),
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: _showMonthPicker,
+                child: _buildOptionRow(
+                  Icons.calendar_month_outlined,
+                  'Periode',
+                  value: '${_getMonthName(_selectedMonth)} $_selectedYear',
+                  showChevron: true,
+                ),
+              ),
+              Divider(height: 1, color: AppColors.divider, indent: 48),
+              _buildOptionRow(
+                Icons.list_alt_outlined,
+                'Sertakan daftar transaksi',
+                trailing: _buildSwitch(_includeEntries, (v) => setState(() => _includeEntries = v)),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildOptionRow(String label, {required Widget trailing}) {
+  Widget _buildOptionRow(IconData icon, String label, {String? value, Widget? trailing, bool showChevron = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 14),
+          Icon(icon, size: 20, color: AppColors.neutral600),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 14),
+            ),
           ),
-          trailing,
+          if (value != null)
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.neutral700,
+              ),
+            ),
+          if (trailing != null) trailing,
+          if (showChevron)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Icon(Icons.chevron_right, size: 20, color: AppColors.neutral400),
+            ),
         ],
       ),
     );
@@ -683,55 +837,62 @@ class _ExportScreenState extends State<ExportScreen> {
         GestureDetector(
           onTap: _isExporting ? null : _shareReport,
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 13),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.accent),
+              borderRadius: BorderRadius.circular(16),
+              color: AppColors.accent,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (_isExporting)
-                  SizedBox(
-                    width: 17,
-                    height: 17,
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.accent,
+                      color: Colors.white,
                     ),
                   )
                 else
-                  Icon(Icons.share, size: 17, color: AppColors.accent),
-                const SizedBox(width: 8),
-                Text(
-                  'Bagikan laporan',
+                  const Icon(Icons.share, size: 18, color: Colors.white),
+                const SizedBox(width: 10),
+                const Text(
+                  'Bagikan Laporan',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.accent,
+                    color: Colors.white,
                   ),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         GestureDetector(
           onTap: _isExporting ? null : _saveToFiles,
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 13),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.divider),
+              borderRadius: BorderRadius.circular(16),
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.neutral300),
             ),
-            child: const Center(
-              child: Text(
-                'Simpan ke Files',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.save_alt, size: 18, color: AppColors.neutral700),
+                const SizedBox(width: 10),
+                Text(
+                  'Simpan ke Files',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral800,
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),

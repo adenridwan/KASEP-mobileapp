@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 
 class SectionHeader extends StatelessWidget {
@@ -27,17 +28,14 @@ class SectionHeader extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 2),
               Text(
                 subtitle!,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: AppColors.neutral700,
                   fontStyle: FontStyle.italic,
                 ),
@@ -51,7 +49,8 @@ class SectionHeader extends StatelessWidget {
             child: Text(
               actionText!,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
                 color: AppColors.accent,
               ),
             ),

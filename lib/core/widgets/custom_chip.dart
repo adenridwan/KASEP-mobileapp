@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 
 class CustomChip extends StatelessWidget {
@@ -26,8 +27,8 @@ class CustomChip extends StatelessWidget {
           vertical: isSmall ? 5 : 8,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent100 : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
+          color: isSelected ? AppColors.accent100 : AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.accent : AppColors.divider,
           ),
@@ -35,9 +36,13 @@ class CustomChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: isSmall ? 11 : 13,
-            color: isSelected ? AppColors.accent700 :
-                   isSmall ? AppColors.neutral700 : AppColors.text,
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            color: isSelected
+                ? AppColors.accent700
+                : isSmall
+                ? AppColors.neutral700
+                : AppColors.text,
           ),
         ),
       ),

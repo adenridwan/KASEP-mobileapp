@@ -199,6 +199,71 @@ class TransactionRepository {
     );
   }
 
+  // ==================== TRANSFERS ====================
+
+  /// Create a transfer between two fund sources
+  /// This creates a single transaction marked as transfer
+  Future<void> createTransfer({
+    required String fromSourceId,
+    required String fromSourceName,
+    required String toSourceId,
+    required String toSourceName,
+    required int amount,
+    String? note,
+    DateTime? dateTime,
+  }) async {
+    final now = dateTime ?? DateTime.now();
+    final transaction = Transaction(
+      id: now.millisecondsSinceEpoch.toString(),
+      title: 'Transfer ke $toSourceName',
+      amount: amount,
+      category: 'Transfer',
+      dateTime: now,
+      note: note ?? 'Transfer dari $fromSourceName ke $toSourceName',
+      isIncome: false,
+      fundSource: fromSourceName,
+      fundSourceId: fromSourceId,
+      isTransfer: true,
+      transferToSourceId: toSourceId,
+    );
+
+    await create(transaction);
+  }
+
+  /// Get all transfer transactions
+  Future<List<Transaction>> getTransfers() async {
+    final db = await DatabaseHelper.instance.database;
+    final maps = await db.query(
+      'transactions',
+      where: 'isTransfer = ?',
+      whereArgs: [1],
+      orderBy: 'dateTime DESC',
+    );
+    return maps.map((map) => Transaction.fromMap(map)).toList();
+  }
+
+  /// Get total transferred from a source
+  Future<int> getTotalTransferredFrom(String sourceId) async {
+    final db = await DatabaseHelper.instance.database;
+    final result = await db.rawQuery('''
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM transactions
+      WHERE fundSourceId = ? AND isTransfer = 1
+    ''', [sourceId]);
+    return (result.first['total'] as int?) ?? 0;
+  }
+
+  /// Get total transferred to a source
+  Future<int> getTotalTransferredTo(String sourceId) async {
+    final db = await DatabaseHelper.instance.database;
+    final result = await db.rawQuery('''
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM transactions
+      WHERE transferToSourceId = ? AND isTransfer = 1
+    ''', [sourceId]);
+    return (result.first['total'] as int?) ?? 0;
+  }
+
   // ==================== AGGREGATIONS ====================
 
   /// Get total income for a month
@@ -294,6 +359,32 @@ class TransactionRepository {
 
     return result.map((row) => {
       'category': row['category'] as String,
+      'total': (row['total'] as int?) ?? 0,
+      'count': (row['count'] as int?) ?? 0,
+    }).toList();
+  }
+
+  /// Get income category summaries with totals and counts for a month
+  Future<List<Map<String, dynamic>>> getIncomeCategorySummariesForMonth(int year, int month) async {
+    final db = await DatabaseHelper.instance.database;
+    final startOfMonth = DateTime(year, month, 1);
+    final endOfMonth = DateTime(year, month + 1, 1);
+
+    final result = await db.rawQuery('''
+      SELECT
+        category,
+        fundSource,
+        SUM(amount) as total,
+        COUNT(*) as count
+      FROM transactions
+      WHERE dateTime >= ? AND dateTime < ? AND isIncome = 1
+      GROUP BY category
+      ORDER BY total DESC
+    ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
+
+    return result.map((row) => {
+      'category': row['category'] as String,
+      'fundSource': row['fundSource'] as String?,
       'total': (row['total'] as int?) ?? 0,
       'count': (row['count'] as int?) ?? 0,
     }).toList();

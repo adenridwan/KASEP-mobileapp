@@ -10,10 +10,10 @@ class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
 
   @override
-  State<AnalysisScreen> createState() => _AnalysisScreenState();
+  State<AnalysisScreen> createState() => AnalysisScreenState();
 }
 
-class _AnalysisScreenState extends State<AnalysisScreen> {
+class AnalysisScreenState extends State<AnalysisScreen> {
   DateTime _currentMonth = DateTime.now();
   late DateTime _previousMonth;
 
@@ -28,10 +28,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   void initState() {
     super.initState();
     _previousMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
-    _loadData();
+    loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> loadData() async {
     setState(() => _isLoading = true);
 
     final currentExp = await TransactionRepository.instance.getTotalExpensesByMonth(
@@ -75,7 +75,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta);
       _previousMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
     });
-    _loadData();
+    loadData();
   }
 
   String _getMonthName(DateTime date) {
@@ -588,7 +588,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ),
         );
         if (result == true) {
-          _loadData();
+          loadData();
         }
       },
       child: Container(
