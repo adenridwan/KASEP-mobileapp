@@ -30,15 +30,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   FundSource? _selectedFundSource;
   DateTime _selectedDateTime = DateTime.now();
   final TextEditingController _noteController = TextEditingController();
-  final FocusNode _noteFocusNode = FocusNode();
   bool _isSaving = false;
-  bool _isNoteFieldFocused = false;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _noteFocusNode.addListener(_onNoteFocusChange);
     _loadData();
   }
 
@@ -80,16 +77,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
   }
 
-  void _onNoteFocusChange() {
-    setState(() {
-      _isNoteFieldFocused = _noteFocusNode.hasFocus;
-    });
-  }
-
   @override
   void dispose() {
-    _noteFocusNode.removeListener(_onNoteFocusChange);
-    _noteFocusNode.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -176,8 +165,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           children: [
             _buildHeader(),
             Expanded(child: _buildForm()),
-            if (!_isNoteFieldFocused)
-              NumericKeypad(onKeyPress: _onKeyPress, onSave: _save),
+            NumericKeypad(onKeyPress: _onKeyPress, onSave: _save),
           ],
         ),
       ),
@@ -186,37 +174,36 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
+      padding: const EdgeInsets.fromLTRB(16, 18, 22, 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: Text(
-              'Batal',
-              style: TextStyle(fontSize: 13, color: AppColors.neutral700),
-            ),
-          ),
-          Text(
-            widget.isIncome ? 'Tambah pemasukan' : 'Tambah pengeluaran',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
-          GestureDetector(
-            onTap: _amount.isNotEmpty ? _save : null,
-            child: Text(
-              'Simpan',
-              style: TextStyle(
-                fontSize: 13,
-                color: _amount.isNotEmpty
-                    ? AppColors.accent
-                    : AppColors.neutral400,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.neutral100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.close,
+                size: 20,
+                color: AppColors.neutral700,
               ),
             ),
           ),
+          Expanded(
+            child: Text(
+              widget.isIncome ? 'Tambah pemasukan' : 'Tambah pengeluaran',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 36), // Balance the close button width
         ],
       ),
     );
@@ -240,17 +227,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  void _focusOnAmount() {
-    // Unfocus note field to show numeric keypad
-    if (_noteFocusNode.hasFocus) {
-      _noteFocusNode.unfocus();
-    }
-  }
-
   Widget _buildAmountSection() {
-    return GestureDetector(
-      onTap: _focusOnAmount,
-      child: Container(
+    return Container(
         margin: const EdgeInsets.fromLTRB(22, 16, 22, 6),
         padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
         decoration: BoxDecoration(
@@ -331,7 +309,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -579,52 +556,148 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  Widget _buildNoteSection() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(22, 8, 22, 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+  void _showNoteDialog() {
+    final tempController = TextEditingController(text: _noteController.text);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Catatan',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(
+                      Icons.close,
+                      size: 22,
+                      color: AppColors.neutral600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.divider),
+                ),
+                child: TextField(
+                  controller: tempController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Tulis catatan di sini...',
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.neutral500,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  style: const TextStyle(fontSize: 14, height: 1.5),
+                  maxLines: 6,
+                  minLines: 4,
+                  textInputAction: TextInputAction.newline,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _noteController.text = tempController.text;
+                    });
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Simpan Catatan',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
+    );
+  }
+
+  Widget _buildNoteSection() {
+    final hasNote = _noteController.text.isNotEmpty;
+
+    return GestureDetector(
+      onTap: _showNoteDialog,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(22, 8, 22, 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(
               Icons.edit_note,
               size: 18,
-              color: AppColors.neutral600,
+              color: hasNote ? AppColors.accent : AppColors.neutral600,
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: _noteController,
-              focusNode: _noteFocusNode,
-              decoration: InputDecoration(
-                hintText: widget.isIncome
-                    ? 'Catatan (opsional)'
-                    : 'Catatan (opsional)',
-                hintStyle: TextStyle(
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                hasNote ? _noteController.text : 'Catatan (opsional)',
+                style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.neutral500,
+                  color: hasNote ? AppColors.text : AppColors.neutral500,
                 ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              style: const TextStyle(fontSize: 14),
-              textInputAction: TextInputAction.done,
-              maxLines: 2,
-              minLines: 1,
-              onEditingComplete: () {
-                _noteFocusNode.unfocus();
-              },
             ),
-          ),
-        ],
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: AppColors.neutral400,
+            ),
+          ],
+        ),
       ),
     );
   }

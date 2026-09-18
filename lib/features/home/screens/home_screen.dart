@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/storage/transaction_repository.dart';
+import '../../../core/storage/fund_source_repository.dart';
 import '../../../models/transaction.dart';
+import '../../../models/fund_source.dart';
 import '../../transactions/screens/transaction_list_screen.dart';
 import '../../transactions/screens/add_transaction_screen.dart';
 import '../../transactions/screens/edit_transaction_screen.dart';
@@ -27,6 +29,7 @@ class HomeScreenState extends State<HomeScreen> {
   int _totalIncome = 0;
   int _totalExpenses = 0;
   Map<String, int> _categoryTotals = {};
+  List<Map<String, dynamic>> _fundSourcesWithBalances = [];
   bool _isLoading = true;
 
   @override
@@ -52,6 +55,8 @@ class HomeScreenState extends State<HomeScreen> {
         .getTotalExpensesByMonth(_selectedMonth.year, _selectedMonth.month);
     final categoryTotals = await TransactionRepository.instance
         .getTotalByCategoryForMonth(_selectedMonth.year, _selectedMonth.month);
+    final fundSourcesWithBalances =
+        await FundSourceRepository.instance.getAllWithBalances();
 
     if (mounted) {
       setState(() {
@@ -60,6 +65,7 @@ class HomeScreenState extends State<HomeScreen> {
         _totalIncome = totalIncome;
         _totalExpenses = totalExpenses;
         _categoryTotals = categoryTotals;
+        _fundSourcesWithBalances = fundSourcesWithBalances;
         _isLoading = false;
       });
     }
@@ -121,7 +127,9 @@ class HomeScreenState extends State<HomeScreen> {
                         _buildNetSummary(),
                         const SizedBox(height: 16),
                         _buildIncomeExpense(context),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
+                        _buildFundSourcesSection(),
+                        const SizedBox(height: 20),
                         _buildBalanceChart(),
                         const SizedBox(height: 22),
                         _buildCategorySection(context),
@@ -398,6 +406,221 @@ class HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFundSourcesSection() {
+    if (_fundSourcesWithBalances.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Calculate total balance
+    int totalBalance = 0;
+    for (final item in _fundSourcesWithBalances) {
+      totalBalance += item['balance'] as int;
+    }
+
+    // Gradient colors for cards
+    final gradients = [
+      [const Color(0xFF667eea), const Color(0xFF764ba2)], // Purple-violet
+      [const Color(0xFF11998e), const Color(0xFF38ef7d)], // Teal-green
+      [const Color(0xFFf093fb), const Color(0xFFf5576c)], // Pink-red
+      [const Color(0xFF4facfe), const Color(0xFF00f2fe)], // Blue-cyan
+      [const Color(0xFFfa709a), const Color(0xFFfee140)], // Pink-yellow
+      [const Color(0xFF30cfd0), const Color(0xFF330867)], // Cyan-purple
+    ];
+
+    // Icons for fund sources
+    IconData getIconForSource(String? iconName, String name) {
+      if (iconName != null) {
+        switch (iconName) {
+          case 'wallet':
+            return Icons.account_balance_wallet;
+          case 'bank':
+            return Icons.account_balance;
+          case 'cash':
+            return Icons.payments;
+          case 'savings':
+            return Icons.savings;
+          case 'card':
+            return Icons.credit_card;
+        }
+      }
+      // Default based on name
+      final lowerName = name.toLowerCase();
+      if (lowerName.contains('bank') || lowerName.contains('bca') ||
+          lowerName.contains('bni') || lowerName.contains('bri') ||
+          lowerName.contains('mandiri')) {
+        return Icons.account_balance;
+      } else if (lowerName.contains('gopay') || lowerName.contains('ovo') ||
+                 lowerName.contains('dana') || lowerName.contains('shopeepay')) {
+        return Icons.phone_android;
+      } else if (lowerName.contains('tunai') || lowerName.contains('cash')) {
+        return Icons.payments;
+      }
+      return Icons.account_balance_wallet;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sumber Dana',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Total: ${_formatCurrency(totalBalance)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.neutral600,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_fundSourcesWithBalances.length} akun',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.neutral700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        // Horizontal scrollable cards
+        SizedBox(
+          height: 130,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _fundSourcesWithBalances.length,
+            itemBuilder: (context, index) {
+              final item = _fundSourcesWithBalances[index];
+              final source = item['source'] as FundSource;
+              final balance = item['balance'] as int;
+              final gradient = gradients[index % gradients.length];
+              final icon = getIconForSource(source.icon, source.name);
+
+              return Container(
+                width: 160,
+                margin: EdgeInsets.only(
+                  right: index < _fundSourcesWithBalances.length - 1 ? 12 : 0,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradient[0].withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    // Decorative circles
+                    Positioned(
+                      top: -20,
+                      right: -20,
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.1),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -30,
+                      left: -20,
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                    ),
+                    // Content
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              icon,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            source.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _formatCurrency(balance),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ],

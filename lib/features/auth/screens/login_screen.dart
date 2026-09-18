@@ -108,13 +108,19 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _toggleAuthMode() {
+    final switchingToBio = !_isBioMode;
     setState(() {
-      _isBioMode = !_isBioMode;
+      _isBioMode = switchingToBio;
       _pin = '';
       _pinError = false;
       _isScanning = false;
       _isRecognized = false;
     });
+
+    // Trigger fingerprint scan when switching to bio mode
+    if (switchingToBio && _biometricsEnabled) {
+      Future.delayed(const Duration(milliseconds: 300), _scanBio);
+    }
   }
 
   void _navigateToHome() {
