@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5, // Upgraded for monthly_notes table and receiptPath
+      version: 6, // Upgraded for budgets table
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -79,6 +79,19 @@ class DatabaseHelper {
       )
     ''');
 
+    // Budgets table
+    await db.execute('''
+      CREATE TABLE budgets (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        createdAt TEXT NOT NULL,
+        UNIQUE(category, month, year)
+      )
+    ''');
+
     // Create indexes for transactions
     await db.execute('''
       CREATE INDEX idx_transactions_date ON transactions (dateTime)
@@ -106,6 +119,11 @@ class DatabaseHelper {
     // Create index for monthly notes
     await db.execute('''
       CREATE INDEX idx_monthly_notes_year_month ON monthly_notes (year, month)
+    ''');
+
+    // Create index for budgets
+    await db.execute('''
+      CREATE INDEX idx_budgets_category_month_year ON budgets (category, month, year)
     ''');
 
     // Insert default fund sources
@@ -221,6 +239,24 @@ class DatabaseHelper {
       ''');
       await db.execute('''
         CREATE INDEX idx_monthly_notes_year_month ON monthly_notes (year, month)
+      ''');
+    }
+
+    // Migration v5 -> v6: Add budgets table
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE budgets (
+          id TEXT PRIMARY KEY,
+          category TEXT NOT NULL,
+          amount INTEGER NOT NULL,
+          month INTEGER NOT NULL,
+          year INTEGER NOT NULL,
+          createdAt TEXT NOT NULL,
+          UNIQUE(category, month, year)
+        )
+      ''');
+      await db.execute('''
+        CREATE INDEX idx_budgets_category_month_year ON budgets (category, month, year)
       ''');
     }
   }

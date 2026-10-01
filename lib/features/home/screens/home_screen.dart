@@ -5,15 +5,18 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/storage/transaction_repository.dart';
 import '../../../core/storage/fund_source_repository.dart';
 import '../../../core/storage/monthly_note_repository.dart';
+import '../../../core/storage/budget_repository.dart';
 import '../../../models/transaction.dart';
 import '../../../models/fund_source.dart';
 import '../../../models/monthly_note.dart';
+import '../../../models/budget.dart';
 import '../../transactions/screens/transaction_list_screen.dart';
 import '../../transactions/screens/add_transaction_screen.dart';
 import '../../transactions/screens/edit_transaction_screen.dart';
 import '../../categories/screens/categories_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../monthly_notes/screens/monthly_notes_screen.dart';
+import '../../budget/screens/budget_screen.dart';
 import '../widgets/balance_chart.dart';
 import '../widgets/category_bar.dart';
 import '../widgets/transaction_row.dart';
@@ -35,6 +38,7 @@ class HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _fundSourcesWithBalances = [];
   bool _isLoading = true;
   MonthlyNote? _monthlyNote;
+  List<BudgetProgress> _budgetProgress = [];
 
   @override
   void initState() {
@@ -65,6 +69,10 @@ class HomeScreenState extends State<HomeScreen> {
       _selectedMonth.year,
       _selectedMonth.month,
     );
+    final budgetProgress = await BudgetRepository.instance.getBudgetProgress(
+      _selectedMonth.year,
+      _selectedMonth.month,
+    );
 
     if (mounted) {
       setState(() {
@@ -75,6 +83,7 @@ class HomeScreenState extends State<HomeScreen> {
         _categoryTotals = categoryTotals;
         _fundSourcesWithBalances = fundSourcesWithBalances;
         _monthlyNote = monthlyNote;
+        _budgetProgress = budgetProgress;
         _isLoading = false;
       });
     }
@@ -138,6 +147,8 @@ class HomeScreenState extends State<HomeScreen> {
                         _buildIncomeExpense(context),
                         const SizedBox(height: 20),
                         _buildFundSourcesSection(),
+                        const SizedBox(height: 20),
+                        _buildBudgetCard(context),
                         const SizedBox(height: 20),
                         _buildBalanceChart(),
                         const SizedBox(height: 22),
@@ -667,6 +678,211 @@ class HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBudgetCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BudgetScreen(
+              year: _selectedMonth.year,
+              month: _selectedMonth.month,
+            ),
+          ),
+        );
+        if (result == true) {
+          loadData();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent2.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.track_changes,
+                        size: 18,
+                        color: AppColors.accent2,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Target Pengeluaran',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.bg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        _budgetProgress.isEmpty ? 'Atur' : 'Edit',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 14,
+                        color: AppColors.accent,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (_budgetProgress.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.accent2.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.accent2.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.add_chart,
+                      size: 28,
+                      color: AppColors.accent2,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Belum ada target bulan ini',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.neutral700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Ketuk untuk atur target pengeluaran',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.neutral500,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ..._budgetProgress.take(3).map((bp) => _buildBudgetProgressRow(bp)),
+            if (_budgetProgress.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Center(
+                  child: Text(
+                    '+${_budgetProgress.length - 3} kategori lainnya',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.neutral600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBudgetProgressRow(BudgetProgress bp) {
+    final percentage = bp.percentage;
+    final isOver = bp.isOverBudget;
+    final isWarning = bp.isWarning;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                bp.budget.category,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.text,
+                ),
+              ),
+              Text(
+                'Rp ${_formatCurrency(bp.spent)} / ${_formatCurrency(bp.budget.amount)}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isOver
+                      ? AppColors.negative
+                      : isWarning
+                          ? AppColors.accent2
+                          : AppColors.neutral600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Stack(
+            children: [
+              Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  color: AppColors.neutral200,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              FractionallySizedBox(
+                widthFactor: (percentage / 100).clamp(0, 1),
+                child: Container(
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: isOver
+                        ? AppColors.negative
+                        : isWarning
+                            ? AppColors.accent2
+                            : AppColors.accent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
