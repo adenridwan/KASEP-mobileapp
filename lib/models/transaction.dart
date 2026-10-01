@@ -10,6 +10,7 @@ class Transaction {
   final String? fundSourceId; // ID sumber dana
   final bool isTransfer; // Apakah ini transaksi transfer
   final String? transferToSourceId; // ID sumber tujuan (untuk transfer)
+  final String? receiptPath; // Path to receipt photo
 
   Transaction({
     required this.id,
@@ -23,6 +24,7 @@ class Transaction {
     this.fundSourceId,
     this.isTransfer = false,
     this.transferToSourceId,
+    this.receiptPath,
   });
 
   /// Convert Transaction to Map for database storage
@@ -39,6 +41,7 @@ class Transaction {
       'fundSourceId': fundSourceId,
       'isTransfer': isTransfer ? 1 : 0,
       'transferToSourceId': transferToSourceId,
+      'receiptPath': receiptPath,
     };
   }
 
@@ -56,6 +59,7 @@ class Transaction {
       fundSourceId: map['fundSourceId'] as String?,
       isTransfer: (map['isTransfer'] as int?) == 1,
       transferToSourceId: map['transferToSourceId'] as String?,
+      receiptPath: map['receiptPath'] as String?,
     );
   }
 
@@ -87,6 +91,8 @@ class Transaction {
     String? fundSourceId,
     bool? isTransfer,
     String? transferToSourceId,
+    String? receiptPath,
+    bool clearReceiptPath = false,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -100,6 +106,7 @@ class Transaction {
       fundSourceId: fundSourceId ?? this.fundSourceId,
       isTransfer: isTransfer ?? this.isTransfer,
       transferToSourceId: transferToSourceId ?? this.transferToSourceId,
+      receiptPath: clearReceiptPath ? null : (receiptPath ?? this.receiptPath),
     );
   }
 }

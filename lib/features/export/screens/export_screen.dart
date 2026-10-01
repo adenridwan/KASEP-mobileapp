@@ -388,44 +388,355 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 
   void _showMonthPicker() {
+    int tempYear = _selectedYear;
+
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: 300,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Pilih Bulan',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final now = DateTime.now();
+          final shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+
+          return Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(top: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.neutral300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_month,
+                          size: 22,
+                          color: AppColors.accent,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Pilih Periode',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.text,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Year selector
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              setModalState(() => tempYear--);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.chevron_left,
+                                size: 22,
+                                color: AppColors.neutral700,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _showYearPicker(context, tempYear, (year) {
+                              setModalState(() => tempYear = year);
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    '$tempYear',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.text,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    Icons.unfold_more,
+                                    size: 18,
+                                    color: AppColors.neutral500,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: tempYear < now.year ? () {
+                              setModalState(() => tempYear++);
+                            } : null,
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.chevron_right,
+                                size: 22,
+                                color: tempYear < now.year
+                                    ? AppColors.neutral700
+                                    : AppColors.neutral300,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Month grid
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        childAspectRatio: 1.5,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                      ),
+                      itemCount: 12,
+                      itemBuilder: (context, index) {
+                        final month = index + 1;
+                        final isSelected = month == _selectedMonth && tempYear == _selectedYear;
+                        final isCurrent = month == now.month && tempYear == now.year;
+                        final isFuture = tempYear > now.year ||
+                            (tempYear == now.year && month > now.month);
+
+                        return GestureDetector(
+                          onTap: isFuture ? null : () {
+                            Navigator.pop(context);
+                            setState(() {
+                              _selectedMonth = month;
+                              _selectedYear = tempYear;
+                            });
+                            _loadData();
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.accent
+                                  : isFuture
+                                      ? AppColors.neutral200
+                                      : AppColors.bg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: isCurrent && !isSelected
+                                  ? Border.all(color: AppColors.accent, width: 2)
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    shortMonths[index],
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isSelected || isCurrent
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : isFuture
+                                              ? AppColors.neutral400
+                                              : isCurrent
+                                                  ? AppColors.accent
+                                                  : AppColors.text,
+                                    ),
+                                  ),
+                                  if (isCurrent && !isSelected)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 2),
+                                      width: 4,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accent,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Quick select buttons
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                              setState(() {
+                                _selectedMonth = now.month;
+                                _selectedYear = now.year;
+                              });
+                              _loadData();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Bulan Ini',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              final prevMonth = now.month == 1 ? 12 : now.month - 1;
+                              final prevYear = now.month == 1 ? now.year - 1 : now.year;
+                              Navigator.pop(context);
+                              setState(() {
+                                _selectedMonth = prevMonth;
+                                _selectedYear = prevYear;
+                              });
+                              _loadData();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.bg,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.neutral300),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Bulan Lalu',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.neutral700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showYearPicker(BuildContext parentContext, int currentYear, Function(int) onYearSelected) {
+    final now = DateTime.now();
+    final years = List.generate(10, (i) => now.year - i);
+
+    showDialog(
+      context: parentContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Pilih Tahun'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.fromLTRB(8, 20, 8, 8),
+        content: SizedBox(
+          width: 280,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: years.map((year) {
+              final isSelected = year == currentYear;
+              return GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  onYearSelected(year);
+                },
+                child: Container(
+                  width: 75,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.accent : AppColors.bg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: isSelected ? null : Border.all(color: AppColors.neutral300),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$year',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? Colors.white : AppColors.text,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: 12,
-                  itemBuilder: (context, index) {
-                    final month = index + 1;
-                    final isSelected = month == _selectedMonth && _selectedYear == DateTime.now().year;
-                    return ListTile(
-                      title: Text('${_getMonthName(month)} $_selectedYear'),
-                      trailing: isSelected ? Icon(Icons.check, color: AppColors.accent) : null,
-                      onTap: () {
-                        Navigator.pop(context);
-                        setState(() => _selectedMonth = month);
-                        _loadData();
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+              );
+            }).toList(),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+        ],
       ),
     );
   }

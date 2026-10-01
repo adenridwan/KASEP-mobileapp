@@ -10,6 +10,7 @@ import '../../../models/transaction.dart';
 import '../../../models/fund_source.dart';
 import '../../../models/income_category.dart';
 import '../widgets/numeric_keypad.dart';
+import '../widgets/receipt_photo_picker.dart';
 
 class EditTransactionScreen extends StatefulWidget {
   final Transaction transaction;
@@ -35,6 +36,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   bool _isNoteFieldFocused = false;
   bool _isEditingAmount = false;
   bool _isLoading = true;
+  String? _receiptPath;
 
   @override
   void initState() {
@@ -43,6 +45,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     _amountStr = widget.transaction.amount.toString();
     _dateTime = widget.transaction.dateTime;
     _noteController = TextEditingController(text: widget.transaction.note ?? '');
+    _receiptPath = widget.transaction.receiptPath;
     _noteFocusNode.addListener(_onNoteFocusChange);
     _loadData();
   }
@@ -156,6 +159,8 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
             : _selectedCategory,
         fundSource: _selectedFundSource?.name,
         fundSourceId: _selectedFundSource?.id,
+        receiptPath: _receiptPath,
+        clearReceiptPath: _receiptPath == null && widget.transaction.receiptPath != null,
       );
 
       await TransactionRepository.instance.update(updatedTransaction);
@@ -311,9 +316,23 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
           _buildFundSourceSection(),
           _buildDateTimeSection(tx),
           _buildNoteSection(tx),
+          _buildReceiptSection(),
           _buildImpactCallout(),
           _buildDeleteButton(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReceiptSection() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      child: ReceiptPhotoPicker(
+        receiptPath: _receiptPath,
+        transactionId: widget.transaction.id,
+        onPhotoChanged: (path) {
+          setState(() => _receiptPath = path);
+        },
       ),
     );
   }

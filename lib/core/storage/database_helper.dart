@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // Upgraded for income_categories table
+      version: 5, // Upgraded for monthly_notes table and receiptPath
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -39,7 +39,8 @@ class DatabaseHelper {
         fundSource TEXT,
         fundSourceId TEXT,
         isTransfer INTEGER NOT NULL DEFAULT 0,
-        transferToSourceId TEXT
+        transferToSourceId TEXT,
+        receiptPath TEXT
       )
     ''');
 
@@ -65,6 +66,19 @@ class DatabaseHelper {
       )
     ''');
 
+    // Monthly notes table
+    await db.execute('''
+      CREATE TABLE monthly_notes (
+        id TEXT PRIMARY KEY,
+        year INTEGER NOT NULL,
+        month INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        UNIQUE(year, month)
+      )
+    ''');
+
     // Create indexes for transactions
     await db.execute('''
       CREATE INDEX idx_transactions_date ON transactions (dateTime)
@@ -87,6 +101,11 @@ class DatabaseHelper {
     // Create index for income categories
     await db.execute('''
       CREATE INDEX idx_income_categories_name ON income_categories (name)
+    ''');
+
+    // Create index for monthly notes
+    await db.execute('''
+      CREATE INDEX idx_monthly_notes_year_month ON monthly_notes (year, month)
     ''');
 
     // Insert default fund sources
@@ -181,6 +200,28 @@ class DatabaseHelper {
         CREATE INDEX idx_income_categories_name ON income_categories (name)
       ''');
       await _insertDefaultIncomeCategories(db);
+    }
+
+    // Migration v4 -> v5: Add monthly_notes table and receiptPath column
+    if (oldVersion < 5) {
+      // Add receiptPath column to transactions
+      await db.execute('ALTER TABLE transactions ADD COLUMN receiptPath TEXT');
+
+      // Create monthly_notes table
+      await db.execute('''
+        CREATE TABLE monthly_notes (
+          id TEXT PRIMARY KEY,
+          year INTEGER NOT NULL,
+          month INTEGER NOT NULL,
+          content TEXT NOT NULL,
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL,
+          UNIQUE(year, month)
+        )
+      ''');
+      await db.execute('''
+        CREATE INDEX idx_monthly_notes_year_month ON monthly_notes (year, month)
+      ''');
     }
   }
 

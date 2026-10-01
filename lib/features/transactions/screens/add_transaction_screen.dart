@@ -11,6 +11,7 @@ import '../../../models/transaction.dart';
 import '../../../models/fund_source.dart';
 import '../../../models/income_category.dart';
 import '../widgets/numeric_keypad.dart';
+import '../widgets/receipt_photo_picker.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final bool isIncome;
@@ -32,10 +33,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final TextEditingController _noteController = TextEditingController();
   bool _isSaving = false;
   bool _isLoading = true;
+  String? _receiptPath;
+  late String _transactionId;
 
   @override
   void initState() {
     super.initState();
+    _transactionId = DateTime.now().millisecondsSinceEpoch.toString();
     _loadData();
   }
 
@@ -102,7 +106,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     try {
       final transaction = Transaction(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: _transactionId,
         title: _noteController.text.isNotEmpty
             ? _noteController.text
             : _selectedCategory!,
@@ -113,6 +117,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         isIncome: widget.isIncome,
         fundSource: _selectedFundSource?.name,
         fundSourceId: _selectedFundSource?.id,
+        receiptPath: _receiptPath,
       );
 
       await TransactionRepository.instance.create(transaction);
@@ -222,6 +227,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           _buildFundSourceSection(),
           _buildDateTimeSection(),
           _buildNoteSection(),
+          ReceiptPhotoPicker(
+            receiptPath: _receiptPath,
+            transactionId: _transactionId,
+            onPhotoChanged: (path) {
+              setState(() => _receiptPath = path);
+            },
+          ),
         ],
       ),
     );

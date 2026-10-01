@@ -4,13 +4,16 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/storage/transaction_repository.dart';
 import '../../../core/storage/fund_source_repository.dart';
+import '../../../core/storage/monthly_note_repository.dart';
 import '../../../models/transaction.dart';
 import '../../../models/fund_source.dart';
+import '../../../models/monthly_note.dart';
 import '../../transactions/screens/transaction_list_screen.dart';
 import '../../transactions/screens/add_transaction_screen.dart';
 import '../../transactions/screens/edit_transaction_screen.dart';
 import '../../categories/screens/categories_screen.dart';
 import '../../settings/screens/settings_screen.dart';
+import '../../monthly_notes/screens/monthly_notes_screen.dart';
 import '../widgets/balance_chart.dart';
 import '../widgets/category_bar.dart';
 import '../widgets/transaction_row.dart';
@@ -31,6 +34,7 @@ class HomeScreenState extends State<HomeScreen> {
   Map<String, int> _categoryTotals = {};
   List<Map<String, dynamic>> _fundSourcesWithBalances = [];
   bool _isLoading = true;
+  MonthlyNote? _monthlyNote;
 
   @override
   void initState() {
@@ -57,6 +61,10 @@ class HomeScreenState extends State<HomeScreen> {
         .getTotalByCategoryForMonth(_selectedMonth.year, _selectedMonth.month);
     final fundSourcesWithBalances =
         await FundSourceRepository.instance.getAllWithBalances();
+    final monthlyNote = await MonthlyNoteRepository.instance.getByMonth(
+      _selectedMonth.year,
+      _selectedMonth.month,
+    );
 
     if (mounted) {
       setState(() {
@@ -66,6 +74,7 @@ class HomeScreenState extends State<HomeScreen> {
         _totalExpenses = totalExpenses;
         _categoryTotals = categoryTotals;
         _fundSourcesWithBalances = fundSourcesWithBalances;
+        _monthlyNote = monthlyNote;
         _isLoading = false;
       });
     }
@@ -132,6 +141,8 @@ class HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
                         _buildBalanceChart(),
                         const SizedBox(height: 22),
+                        _buildMonthlyNoteCard(context),
+                        const SizedBox(height: 22),
                         _buildCategorySection(context),
                         const SizedBox(height: 22),
                         _buildTodayTransactions(context),
@@ -192,6 +203,38 @@ class HomeScreenState extends State<HomeScreen> {
                   Icons.chevron_right,
                   size: 18,
                   color: AppColors.neutral400,
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MonthlyNotesScreen(
+                        initialYear: _selectedMonth.year,
+                        initialMonth: _selectedMonth.month,
+                      ),
+                    ),
+                  );
+                  loadData();
+                },
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _monthlyNote != null && _monthlyNote!.isNotEmpty
+                        ? AppColors.accent.withValues(alpha: 0.15)
+                        : AppColors.surface,
+                  ),
+                  child: Icon(
+                    Icons.edit_note,
+                    size: 20,
+                    color: _monthlyNote != null && _monthlyNote!.isNotEmpty
+                        ? AppColors.accent
+                        : AppColors.neutral700,
+                  ),
                 ),
               ),
               const SizedBox(width: 4),
@@ -643,6 +686,135 @@ class HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
           BalanceChart(year: _selectedMonth.year, month: _selectedMonth.month),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyNoteCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MonthlyNotesScreen(
+              initialYear: _selectedMonth.year,
+              initialMonth: _selectedMonth.month,
+            ),
+          ),
+        );
+        loadData();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.edit_note,
+                    size: 18,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Catatan Bulanan',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.text,
+                        ),
+                      ),
+                      Text(
+                        _formattedMonth,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.neutral600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.neutral400,
+                ),
+              ],
+            ),
+            if (_monthlyNote != null && _monthlyNote!.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _monthlyNote!.content.length > 150
+                      ? '${_monthlyNote!.content.substring(0, 150)}...'
+                      : _monthlyNote!.content,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.neutral700,
+                    height: 1.5,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.15),
+                    style: BorderStyle.solid,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add,
+                      size: 16,
+                      color: AppColors.accent,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tulis catatan bulan ini',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
