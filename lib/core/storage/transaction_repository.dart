@@ -290,7 +290,7 @@ class TransactionRepository {
     final result = await db.rawQuery('''
       SELECT COALESCE(SUM(amount), 0) as total
       FROM transactions
-      WHERE dateTime >= ? AND dateTime < ? AND isIncome = 0
+      WHERE dateTime >= ? AND dateTime < ? AND isIncome = 0 AND isTransfer = 0
     ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
 
     return (result.first['total'] as int?) ?? 0;
@@ -305,7 +305,7 @@ class TransactionRepository {
     final result = await db.rawQuery('''
       SELECT category, SUM(amount) as total
       FROM transactions
-      WHERE dateTime >= ? AND dateTime < ? AND isIncome = 0
+      WHERE dateTime >= ? AND dateTime < ? AND isIncome = 0 AND isTransfer = 0
       GROUP BY category
       ORDER BY total DESC
     ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
@@ -352,7 +352,7 @@ class TransactionRepository {
         SUM(amount) as total,
         COUNT(*) as count
       FROM transactions
-      WHERE dateTime >= ? AND dateTime < ? AND isIncome = 0
+      WHERE dateTime >= ? AND dateTime < ? AND isIncome = 0 AND isTransfer = 0
       GROUP BY category
       ORDER BY total DESC
     ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
@@ -401,7 +401,7 @@ class TransactionRepository {
         CAST(substr(dateTime, 9, 2) AS INTEGER) as day,
         SUM(amount) as total
       FROM transactions
-      WHERE dateTime >= ? AND dateTime < ? AND isIncome = ?
+      WHERE dateTime >= ? AND dateTime < ? AND isIncome = ? AND isTransfer = 0
       GROUP BY day
       ORDER BY day ASC
     ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String(), isIncome ? 1 : 0]);
@@ -428,7 +428,7 @@ class TransactionRepository {
         amount,
         isIncome
       FROM transactions
-      WHERE dateTime >= ? AND dateTime < ?
+      WHERE dateTime >= ? AND dateTime < ? AND isTransfer = 0
       ORDER BY day ASC
     ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
 
@@ -480,7 +480,7 @@ class TransactionRepository {
       final expenseResult = await db.rawQuery('''
         SELECT COALESCE(SUM(amount), 0) as total
         FROM transactions
-        WHERE dateTime >= ? AND dateTime <= ? AND isIncome = 0
+        WHERE dateTime >= ? AND dateTime <= ? AND isIncome = 0 AND isTransfer = 0
       ''', [weekStart.toIso8601String(), weekEnd.toIso8601String()]);
 
       result.add({
@@ -502,7 +502,7 @@ class TransactionRepository {
 
     final transactions = await db.query(
       'transactions',
-      where: 'dateTime >= ? AND dateTime < ? AND isIncome = 0',
+      where: 'dateTime >= ? AND dateTime < ? AND isIncome = 0 AND isTransfer = 0',
       whereArgs: [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()],
     );
 
@@ -525,7 +525,7 @@ class TransactionRepository {
 
     final maps = await db.query(
       'transactions',
-      where: 'dateTime >= ? AND dateTime < ? AND isIncome = 0',
+      where: 'dateTime >= ? AND dateTime < ? AND isIncome = 0 AND isTransfer = 0',
       whereArgs: [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()],
       orderBy: 'amount DESC',
       limit: limit,
