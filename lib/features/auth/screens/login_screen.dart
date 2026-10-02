@@ -13,11 +13,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService.instance;
 
-  bool _isBioMode = true;
   String _pin = '';
   bool _pinError = false;
   bool _isScanning = false;
-  bool _isRecognized = false;
   bool _biometricsEnabled = false;
   bool _isLoading = true;
 
@@ -34,11 +32,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) {
       setState(() {
         _biometricsEnabled = biometricsEnabled && biometricsAvailable;
-        _isBioMode = _biometricsEnabled;
         _isLoading = false;
       });
 
-      // Auto-trigger biometrics on launch if enabled
+      // Open the system fingerprint prompt on launch; cancel falls back to PIN
       if (_biometricsEnabled) {
         Future.delayed(const Duration(milliseconds: 300), _scanBio);
       }
@@ -46,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _scanBio() async {
-    if (!_biometricsEnabled) return;
+    if (!_biometricsEnabled || _isScanning) return;
 
     setState(() {
       _isScanning = true;
@@ -56,21 +53,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
+    setState(() {
+      _isScanning = false;
+    });
+
     if (success) {
-      setState(() {
-        _isScanning = false;
-        _isRecognized = true;
-      });
-
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      if (mounted) {
-        _navigateToHome();
-      }
-    } else {
-      setState(() {
-        _isScanning = false;
-      });
+      _navigateToHome();
     }
   }
 
@@ -107,22 +95,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _toggleAuthMode() {
-    final switchingToBio = !_isBioMode;
-    setState(() {
-      _isBioMode = switchingToBio;
-      _pin = '';
-      _pinError = false;
-      _isScanning = false;
-      _isRecognized = false;
-    });
-
-    // Trigger fingerprint scan when switching to bio mode
-    if (switchingToBio && _biometricsEnabled) {
-      Future.delayed(const Duration(milliseconds: 300), _scanBio);
-    }
-  }
-
   void _navigateToHome() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const MainNavigation()),
@@ -153,10 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 60),
                     _buildHeader(),
                     const SizedBox(height: 30),
-                    if (_isBioMode && _biometricsEnabled)
-                      _buildBioAuth()
-                    else
-                      _buildPinAuth(),
+                    _buildPinAuth(),
                   ],
                 ),
               ),
@@ -238,81 +207,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildBioAuth() {
-    Color ringColor = AppColors.neutral400;
-    Color bgColor = Colors.transparent;
-    String title = 'Sentuh untuk masuk';
-    String hint =
-        'Buka dengan sidik jari atau wajah — PIN tetap tersedia sebagai cadangan.';
-
-    if (_isScanning) {
-      ringColor = AppColors.accent600;
-      bgColor = AppColors.accent100;
-      title = 'Memindai…';
-      hint = 'Tahan jari Anda pada sensor';
-    } else if (_isRecognized) {
-      ringColor = AppColors.accent;
-      bgColor = AppColors.accent100;
-      title = 'Dikenali';
-      hint = 'Membuka buku kas…';
-    }
-
-    return Column(
-      children: [
-        const SizedBox(height: 20),
-        GestureDetector(
-          // Allow tap even when scanning to retry biometric
-          onTap: _isRecognized ? null : _scanBio,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            width: 126,
-            height: 126,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: bgColor,
-              border: Border.all(color: ringColor),
-              boxShadow: _isScanning
-                  ? [
-                      BoxShadow(
-                        color: AppColors.accent100,
-                        blurRadius: 0,
-                        spreadRadius: 10,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Icon(
-              Icons.fingerprint,
-              size: 52,
-              color: ringColor,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            hint,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.neutral700,
-              height: 1.6,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildPinAuth() {
     return Column(
       children: [
@@ -378,7 +272,7 @@ class _LoginScreenState extends State<LoginScreen> {
         childAspectRatio: 1.4,
         children: [
           ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(_buildPinKey),
-          const SizedBox(),
+          _biometricsEnabled ? _buildBioKey() : const SizedBox(),
           _buildPinKey('0'),
           _buildPinKey('del', isDelete: true),
         ],
@@ -414,33 +308,29 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget _buildBioKey() {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(4),
+      child: InkWell(
+        onTap: _scanBio,
+        borderRadius: BorderRadius.circular(4),
+        child: Center(
+          child: Icon(
+            Icons.fingerprint,
+            size: 30,
+            color: _isScanning ? AppColors.accent600 : AppColors.accent700,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFooter() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(30, 0, 30, 40),
       child: Column(
         children: [
-          if (_biometricsEnabled)
-            GestureDetector(
-              onTap: _toggleAuthMode,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppColors.divider),
-                ),
-                child: Center(
-                  child: Text(
-                    _isBioMode ? 'Masuk dengan PIN' : 'Masuk dengan sidik jari',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (_biometricsEnabled) const SizedBox(height: 18),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

@@ -1,5 +1,6 @@
 package com.bukukas.cash_flow_app
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// local_auth needs a FragmentActivity to show the system biometric prompt
+class MainActivity : FlutterFragmentActivity()
