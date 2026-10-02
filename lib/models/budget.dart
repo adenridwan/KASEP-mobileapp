@@ -1,6 +1,8 @@
 class Budget {
   final String id;
-  final String category;
+  final String? name; // Optional custom label, e.g. "Jajan anak"
+  final String? category; // null = all expense categories
+  final String? fundSourceId; // null = all fund sources
   final int amount; // Target amount
   final int month;
   final int year;
@@ -8,17 +10,27 @@ class Budget {
 
   Budget({
     required this.id,
-    required this.category,
+    this.name,
+    this.category,
+    this.fundSourceId,
     required this.amount,
     required this.month,
     required this.year,
     required this.createdAt,
   });
 
+  /// Display title: custom name, else category, else "Semua pengeluaran"
+  String get label {
+    if (name != null && name!.trim().isNotEmpty) return name!.trim();
+    return category ?? 'Semua pengeluaran';
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'name': name,
       'category': category,
+      'fundSourceId': fundSourceId,
       'amount': amount,
       'month': month,
       'year': year,
@@ -29,29 +41,13 @@ class Budget {
   factory Budget.fromMap(Map<String, dynamic> map) {
     return Budget(
       id: map['id'] as String,
-      category: map['category'] as String,
+      name: map['name'] as String?,
+      category: map['category'] as String?,
+      fundSourceId: map['fundSourceId'] as String?,
       amount: map['amount'] as int,
       month: map['month'] as int,
       year: map['year'] as int,
       createdAt: DateTime.parse(map['createdAt'] as String),
-    );
-  }
-
-  Budget copyWith({
-    String? id,
-    String? category,
-    int? amount,
-    int? month,
-    int? year,
-    DateTime? createdAt,
-  }) {
-    return Budget(
-      id: id ?? this.id,
-      category: category ?? this.category,
-      amount: amount ?? this.amount,
-      month: month ?? this.month,
-      year: year ?? this.year,
-      createdAt: createdAt ?? this.createdAt,
     );
   }
 }
@@ -60,10 +56,12 @@ class Budget {
 class BudgetProgress {
   final Budget budget;
   final int spent;
+  final String? fundSourceName;
 
   BudgetProgress({
     required this.budget,
     required this.spent,
+    this.fundSourceName,
   });
 
   int get remaining => budget.amount - spent;

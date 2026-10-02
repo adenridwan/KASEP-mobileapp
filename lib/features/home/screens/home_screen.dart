@@ -15,6 +15,7 @@ import '../../transactions/screens/add_transaction_screen.dart';
 import '../../transactions/screens/edit_transaction_screen.dart';
 import '../../categories/screens/categories_screen.dart';
 import '../../settings/screens/settings_screen.dart';
+import '../../auth/screens/auth_router.dart';
 import '../../monthly_notes/screens/monthly_notes_screen.dart';
 import '../../budget/screens/budget_screen.dart';
 import '../widgets/balance_chart.dart';
@@ -170,20 +171,41 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
+    final hasNote = _monthlyNote != null && _monthlyNote!.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'KASEP',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.1,
-              color: AppColors.neutral700,
-            ),
+          Row(
+            children: [
+              Text(
+                'KASEP',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                  color: AppColors.neutral700,
+                ),
+              ),
+              const Spacer(),
+              _buildHeaderIcon(
+                icon: Icons.settings_outlined,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _buildHeaderIcon(
+                icon: Icons.logout,
+                color: AppColors.negative,
+                onTap: _showLogoutDialog,
+              ),
+            ],
           ),
+          const SizedBox(height: 10),
           Row(
             children: [
               GestureDetector(
@@ -216,8 +238,11 @@ class HomeScreenState extends State<HomeScreen> {
                   color: AppColors.neutral400,
                 ),
               ),
-              const SizedBox(width: 4),
-              GestureDetector(
+              const SizedBox(width: 6),
+              _buildHeaderIcon(
+                icon: Icons.edit_note,
+                color: hasNote ? AppColors.accent : AppColors.neutral700,
+                background: hasNote ? AppColors.accent.withValues(alpha: 0.15) : null,
                 onTap: () async {
                   await Navigator.push(
                     context,
@@ -230,45 +255,58 @@ class HomeScreenState extends State<HomeScreen> {
                   );
                   loadData();
                 },
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _monthlyNote != null && _monthlyNote!.isNotEmpty
-                        ? AppColors.accent.withValues(alpha: 0.15)
-                        : AppColors.surface,
-                  ),
-                  child: Icon(
-                    Icons.edit_note,
-                    size: 20,
-                    color: _monthlyNote != null && _monthlyNote!.isNotEmpty
-                        ? AppColors.accent
-                        : AppColors.neutral700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                ),
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.surface,
-                  ),
-                  child: Icon(
-                    Icons.settings_outlined,
-                    size: 20,
-                    color: AppColors.neutral700,
-                  ),
-                ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderIcon({
+    required IconData icon,
+    required VoidCallback onTap,
+    Color? color,
+    Color? background,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: background ?? AppColors.surface,
+        ),
+        child: Icon(icon, size: 18, color: color ?? AppColors.neutral700),
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Keluar dari akun ini?'),
+        content: const Text(
+          'Catatan tetap tersimpan terenkripsi di ponsel. '
+          'Anda perlu sidik jari atau PIN untuk masuk kembali.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const AuthRouter()),
+                (route) => false,
+              );
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.accent800),
+            child: const Text('Keluar'),
           ),
         ],
       ),
@@ -684,7 +722,7 @@ class HomeScreenState extends State<HomeScreen> {
   Widget _buildBudgetCard(BuildContext context) {
     return GestureDetector(
       onTap: () async {
-        final result = await Navigator.push(
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => BudgetScreen(
@@ -693,9 +731,7 @@ class HomeScreenState extends State<HomeScreen> {
             ),
           ),
         );
-        if (result == true) {
-          loadData();
-        }
+        loadData();
       },
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -806,7 +842,7 @@ class HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Center(
                   child: Text(
-                    '+${_budgetProgress.length - 3} kategori lainnya',
+                    '+${_budgetProgress.length - 3} target lainnya',
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.neutral600,
@@ -833,14 +869,20 @@ class HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                bp.budget.category,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.text,
+              Expanded(
+                child: Text(
+                  bp.fundSourceName != null
+                      ? '${bp.budget.label} · ${bp.fundSourceName}'
+                      : bp.budget.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.text,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 'Rp ${_formatCurrency(bp.spent)} / ${_formatCurrency(bp.budget.amount)}',
                 style: TextStyle(

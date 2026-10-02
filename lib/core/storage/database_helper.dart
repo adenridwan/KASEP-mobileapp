@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6, // Upgraded for budgets table
+      version: 7, // Budgets linked to fund sources
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -79,16 +79,17 @@ class DatabaseHelper {
       )
     ''');
 
-    // Budgets table
+    // Budgets table (category/fundSourceId null = all)
     await db.execute('''
       CREATE TABLE budgets (
         id TEXT PRIMARY KEY,
-        category TEXT NOT NULL,
+        name TEXT,
+        category TEXT,
+        fundSourceId TEXT,
         amount INTEGER NOT NULL,
         month INTEGER NOT NULL,
         year INTEGER NOT NULL,
-        createdAt TEXT NOT NULL,
-        UNIQUE(category, month, year)
+        createdAt TEXT NOT NULL
       )
     ''');
 
@@ -123,7 +124,7 @@ class DatabaseHelper {
 
     // Create index for budgets
     await db.execute('''
-      CREATE INDEX idx_budgets_category_month_year ON budgets (category, month, year)
+      CREATE INDEX idx_budgets_year_month ON budgets (year, month)
     ''');
 
     // Insert default fund sources
@@ -257,6 +258,31 @@ class DatabaseHelper {
       ''');
       await db.execute('''
         CREATE INDEX idx_budgets_category_month_year ON budgets (category, month, year)
+      ''');
+    }
+
+    // Migration v6 -> v7: Budgets can target a fund source, any category, or a custom name
+    if (oldVersion < 7) {
+      await db.execute('''
+        CREATE TABLE budgets_new (
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          category TEXT,
+          fundSourceId TEXT,
+          amount INTEGER NOT NULL,
+          month INTEGER NOT NULL,
+          year INTEGER NOT NULL,
+          createdAt TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        INSERT INTO budgets_new (id, category, amount, month, year, createdAt)
+        SELECT id, category, amount, month, year, createdAt FROM budgets
+      ''');
+      await db.execute('DROP TABLE budgets');
+      await db.execute('ALTER TABLE budgets_new RENAME TO budgets');
+      await db.execute('''
+        CREATE INDEX idx_budgets_year_month ON budgets (year, month)
       ''');
     }
   }
