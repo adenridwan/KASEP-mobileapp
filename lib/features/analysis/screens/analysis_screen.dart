@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/storage/transaction_repository.dart';
+import '../../../core/storage/budget_repository.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../analysis_insights.dart';
 import '../../../models/transaction.dart';
 import '../../transactions/screens/transaction_list_screen.dart';
 import '../../transactions/screens/edit_transaction_screen.dart';
@@ -17,11 +20,10 @@ class AnalysisScreenState extends State<AnalysisScreen> {
   DateTime _currentMonth = DateTime.now();
   late DateTime _previousMonth;
 
-  int _currentExpenses = 0;
-  int _previousExpenses = 0;
   List<Map<String, dynamic>> _categoryComparison = [];
   Map<int, int> _weekdayTotals = {};
   List<Transaction> _topExpenses = [];
+  AnalysisResult? _analysis;
   bool _isLoading = true;
 
   @override
@@ -57,14 +59,39 @@ class AnalysisScreenState extends State<AnalysisScreen> {
       _currentMonth.month,
       limit: 5,
     );
+    final income = await TransactionRepository.instance.getTotalIncomeByMonth(
+      _currentMonth.year,
+      _currentMonth.month,
+    );
+    final daily = await TransactionRepository.instance.getDailyTotalsForMonth(
+      _currentMonth.year,
+      _currentMonth.month,
+    );
+    final budgets = await BudgetRepository.instance.getBudgetProgress(
+      _currentMonth.year,
+      _currentMonth.month,
+    );
+
+    final analysis = AnalysisInsights.analyze(AnalysisInput(
+      year: _currentMonth.year,
+      month: _currentMonth.month,
+      today: DateTime.now(),
+      income: income,
+      expense: currentExp,
+      previousExpense: prevExp,
+      categoryComparison: comparison,
+      weekdayTotals: weekday,
+      dailyExpense: daily,
+      budgets: budgets,
+      topExpenses: topExp,
+    ));
 
     if (mounted) {
       setState(() {
-        _currentExpenses = currentExp;
-        _previousExpenses = prevExp;
         _categoryComparison = comparison;
         _weekdayTotals = weekday;
         _topExpenses = topExp;
+        _analysis = analysis;
         _isLoading = false;
       });
     }
@@ -109,8 +136,11 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                       )
                     : Column(
                         children: [
-                          _buildSummaryText(),
+                          _buildScoreCard(),
                           const SizedBox(height: 14),
+                          _buildProjectionCard(),
+                          _buildInsights(),
+                          const SizedBox(height: 18),
                           _buildCategoryComparison(context),
                           const SizedBox(height: 18),
                           _buildWeekdayChart(),
@@ -175,75 +205,351 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  Widget _buildSummaryText() {
-    if (_currentExpenses == 0 && _previousExpenses == 0) {
+  Color _toneColor(InsightTone tone) {
+    switch (tone) {
+      case InsightTone.positive:
+        return AppColors.accent;
+      case InsightTone.warning:
+        return AppColors.accent2;
+      case InsightTone.negative:
+        return AppColors.negative;
+      case InsightTone.neutral:
+        return AppColors.neutral600;
+    }
+  }
+
+  IconData _insightIcon(InsightKind kind) {
+    switch (kind) {
+      case InsightKind.target:
+        return Icons.track_changes;
+      case InsightKind.saving:
+        return Icons.savings_outlined;
+      case InsightKind.trendUp:
+        return Icons.trending_up;
+      case InsightKind.trendDown:
+        return Icons.trending_down;
+      case InsightKind.weekend:
+        return Icons.weekend_outlined;
+      case InsightKind.bigTransaction:
+        return Icons.receipt_long_outlined;
+      case InsightKind.noSpend:
+        return Icons.celebration_outlined;
+      case InsightKind.topCategory:
+        return Icons.pie_chart_outline;
+    }
+  }
+
+  Widget _buildScoreCard() {
+    final score = _analysis?.score;
+
+    if (score == null) {
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.text)),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(
-          'Belum ada data pengeluaran untuk dianalisis.',
-          style: TextStyle(
-            fontSize: 15,
-            height: 1.6,
-            color: AppColors.neutral700,
-            fontStyle: FontStyle.italic,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Skor Kesehatan Kas',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Belum cukup data. Catat pemasukan, pengeluaran, atau buat target untuk melihat skor.',
+              style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.neutral600),
+            ),
+          ],
         ),
       );
     }
 
-    final diff = _currentExpenses - _previousExpenses;
-    final diffAbs = diff.abs();
-    final isLess = diff < 0;
-    final percentChange = _previousExpenses > 0
-        ? (diff / _previousExpenses * 100).abs()
-        : 0.0;
-
-    // Find top category
-    String topCategoryInsight = '';
-    if (_categoryComparison.isNotEmpty) {
-      final top = _categoryComparison.first;
-      final topPercent = _currentExpenses > 0
-          ? ((top['current'] as int) / _currentExpenses * 100).toInt()
-          : 0;
-      if (topPercent > 0) {
-        topCategoryInsight = ' ${top['category']} mengambil $topPercent% dari total.';
-      }
-    }
+    final color = _toneColor(score.tone);
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.text)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: RichText(
-        textAlign: TextAlign.justify,
-        text: TextSpan(
-          style: TextStyle(
-            fontSize: 15,
-            height: 1.6,
-            color: AppColors.text,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 76,
+                height: 76,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox.expand(
+                      child: CircularProgressIndicator(
+                        value: score.score / 100,
+                        strokeWidth: 7,
+                        backgroundColor: AppColors.neutral200,
+                        valueColor: AlwaysStoppedAnimation(color),
+                      ),
+                    ),
+                    Text(
+                      '${score.score}',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Skor Kesehatan Kas',
+                      style: TextStyle(fontSize: 12, color: AppColors.neutral600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      score.label,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'dari 100, ${_getMonthName(_currentMonth)} ${_currentMonth.year}',
+                      style: TextStyle(fontSize: 11, color: AppColors.neutral500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          children: [
-            const TextSpan(text: 'Pengeluaran Anda '),
-            TextSpan(
-              text: 'Rp ${_formatAmount(diffAbs)}',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontFeatures: [FontFeature.tabularFigures()],
+          const SizedBox(height: 14),
+          ...score.factors.map(_buildScoreFactor),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScoreFactor(ScoreFactor factor) {
+    final ratio = factor.points / factor.maxPoints;
+    final color = ratio >= 0.75
+        ? AppColors.accent
+        : ratio >= 0.5
+            ? AppColors.accent2
+            : AppColors.negative;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 64,
+            child: Text(
+              factor.name,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 5,
+                    backgroundColor: AppColors.neutral200,
+                    valueColor: AlwaysStoppedAnimation(color),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  factor.detail,
+                  style: TextStyle(fontSize: 11, color: AppColors.neutral600),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '${factor.points}/${factor.maxPoints}',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.neutral600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProjectionCard() {
+    final p = _analysis?.projection;
+    if (p == null || p.spent == 0) return const SizedBox.shrink();
+
+    final exceeded = p.remaining != null && p.remaining! < 0;
+    final isBad = exceeded || p.willExceed;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            p.isCurrentMonth ? 'Proyeksi akhir bulan' : 'Ringkasan bulan',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildProjectionStat('Rata-rata/hari', p.avgDaily),
+              _buildProjectionStat(
+                p.isCurrentMonth ? 'Perkiraan total' : 'Total keluar',
+                p.projected,
+                color: p.willExceed ? AppColors.negative : null,
+              ),
+              if (p.limit != null)
+                _buildProjectionStat(
+                  p.limitLabel == 'pemasukan' ? 'Pemasukan' : 'Target',
+                  p.limit!,
+                ),
+            ],
+          ),
+          if (p.isCurrentMonth && p.limit != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (isBad ? AppColors.negative : AppColors.accent).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isBad ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                    size: 20,
+                    color: isBad ? AppColors.negative : AppColors.accent,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      exceeded
+                          ? 'Sudah melewati ${p.limitLabel} ${CurrencyFormatter.formatWithRp(-p.remaining!)}. '
+                              'Coba tahan pengeluaran ${p.daysLeft} hari ke depan.'
+                          : 'Aman belanja ${CurrencyFormatter.formatWithRp(p.safeDaily!)}/hari '
+                              'selama ${p.daysLeft} hari lagi'
+                              '${p.willExceed ? '. Dengan pola sekarang, ${p.limitLabel} akan terlampaui.' : '.'}',
+                      style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.text),
+                    ),
+                  ),
+                ],
               ),
             ),
-            TextSpan(
-              text: isLess
-                  ? ' lebih kecil dari ${_getMonthName(_previousMonth)}'
-                  : ' lebih besar dari ${_getMonthName(_previousMonth)}',
-            ),
-            if (percentChange > 0) TextSpan(text: ' — ${isLess ? 'turun' : 'naik'} ${percentChange.toStringAsFixed(1)}%'),
-            TextSpan(text: '.$topCategoryInsight'),
           ],
-        ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProjectionStat(String label, int amount, {Color? color}) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, color: AppColors.neutral600)),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              CurrencyFormatter.formatWithRp(amount),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: color ?? AppColors.text,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsights() {
+    final insights = _analysis?.insights ?? [];
+
+    return Container(
+      padding: const EdgeInsets.only(top: 14),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.divider)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Insight bulan ini',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          if (insights.isEmpty)
+            Text(
+              'Belum ada data untuk dianalisis.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.neutral600,
+                fontStyle: FontStyle.italic,
+              ),
+            )
+          else
+            ...insights.map((insight) {
+              final color = _toneColor(insight.tone);
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(_insightIcon(insight.kind), size: 18, color: color),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        insight.text,
+                        style: const TextStyle(fontSize: 13, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
       ),
     );
   }
