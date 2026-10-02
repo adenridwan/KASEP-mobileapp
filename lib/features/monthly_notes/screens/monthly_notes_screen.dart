@@ -177,6 +177,7 @@ class _MonthlyNotesScreenState extends State<MonthlyNotesScreen> {
                   ? const Center(child: CircularProgressIndicator())
                   : _buildContent(),
             ),
+            if (!_isLoading) _buildSaveBar(),
           ],
         ),
       ),
@@ -261,28 +262,6 @@ class _MonthlyNotesScreenState extends State<MonthlyNotesScreen> {
                   ],
                 ),
               ),
-              if (_hasChanges)
-                GestureDetector(
-                  onTap: _saveNote,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text(
-                      'Simpan',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 14),
@@ -354,6 +333,54 @@ class _MonthlyNotesScreenState extends State<MonthlyNotesScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSaveBar() {
+    final canSave = _hasChanges && !_isSaving;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: canSave ? _saveNote : null,
+          icon: _isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : Icon(_hasChanges ? Icons.save_outlined : Icons.check, size: 18),
+          label: Text(
+            _isSaving
+                ? 'Menyimpan...'
+                : _hasChanges
+                    ? 'Simpan Catatan'
+                    : 'Tersimpan',
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.accent,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: AppColors.neutral200,
+            disabledForegroundColor: AppColors.neutral600,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
       ),
     );
   }

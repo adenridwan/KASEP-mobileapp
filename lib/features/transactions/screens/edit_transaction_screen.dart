@@ -247,7 +247,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                   NumericKeypad(
                     onKeyPress: _onKeyPress,
                     onSave: _save,
-                  ),
+                  )
+                else if (!_isLoading)
+                  _buildSaveBar(),
               ],
             ),
             if (_showDeleteDialog) _buildDeleteDialog(),
@@ -284,18 +286,38 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
               letterSpacing: 1,
             ),
           ),
-          GestureDetector(
-            onTap: _save,
-            child: Text(
-              'Simpan',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.accent,
-              ),
-            ),
+          // Keeps the title centered now that Simpan lives in the bottom bar
+          const Opacity(
+            opacity: 0,
+            child: Text('‹ Catatan', style: TextStyle(fontSize: 13)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSaveBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(22, 10, 22, 14),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        border: Border(top: BorderSide(color: AppColors.divider)),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _save,
+          icon: const Icon(Icons.check, size: 18),
+          label: const Text('Simpan Perubahan'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.accent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
       ),
     );
   }
